@@ -1,0 +1,23 @@
+services:
+  mealie:
+    image: ghcr.io/mealie-recipes/mealie:v2.8.0 #
+    restart: always
+    ports:
+      - "9925:9000"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 2g
+    volumes:
+      - mealie-data:/app/data/
+    environment:
+      # Set Backend ENV Variables Here
+      ALLOW_SIGNUP: "false"
+      PUID: 1000
+      PGID: 1000
+      TZ: America/Anchorage
+      BASE_URL: https://mealie.yourdomain.com
+
+volumes:
+  mealie-data:

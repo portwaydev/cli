@@ -1,0 +1,7 @@
+app:
+  id: ""
+  slug: portway
+environments:
+  production:
+    compose_files:
+    - compose.mealie.yaml

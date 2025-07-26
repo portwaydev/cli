@@ -1,0 +1,18 @@
+x-endpoints:
+  - port: 5678
+    service: web
+    path: /
+
+services:
+  web:
+    image: hashicorp/http-echo:1.0.0
+    deploy:
+      replicas: 2
+    ports:
+      - "5678:5678"
+    volumes:
+      - web-content:/usr/share/nginx/html
+    restart: always
+
+volumes:
+  web-content:
