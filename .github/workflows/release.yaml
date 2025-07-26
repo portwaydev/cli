@@ -32,7 +32,7 @@ jobs:
         uses: googleapis/release-please-action@v4
         with:
           release-type: go
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Build and Upload Binaries
         if: ${{ steps.semantic-release.outputs.release_created }}
@@ -53,4 +53,4 @@ jobs:
           gh release upload $VERSION portway-darwin-arm64
           gh release upload $VERSION portway-windows-amd64.exe
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
