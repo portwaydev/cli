@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.24.2"
+
+      - name: Run Tests
+        run: go test -v ./...
+
+      - name: Release
+        id: semantic-release
+        uses: googleapis/release-please-action@v4
+        with:
+          release-type: go
+          package-name: cli
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Upload Binaries
+        if: ${{ steps.semantic-release.outputs.release_created }}
+        run: |
+          VERSION=${{ steps.semantic-release.outputs.tag_name }}
+
+          # Build for different platforms
+          GOOS=linux GOARCH=amd64 go build -o portway-linux-amd64
+          GOOS=linux GOARCH=arm64 go build -o portway-linux-arm64
+          GOOS=darwin GOARCH=amd64 go build -o portway-darwin-amd64
+          GOOS=darwin GOARCH=arm64 go build -o portway-darwin-arm64
+          GOOS=windows GOARCH=amd64 go build -o portway-windows-amd64.exe
+
+          # Upload binaries to release
+          gh release upload $VERSION portway-linux-amd64
+          gh release upload $VERSION portway-linux-arm64
+          gh release upload $VERSION portway-darwin-amd64
+          gh release upload $VERSION portway-darwin-arm64
+          gh release upload $VERSION portway-windows-amd64.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
