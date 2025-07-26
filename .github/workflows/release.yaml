@@ -32,7 +32,6 @@ jobs:
         uses: googleapis/release-please-action@v4
         with:
           release-type: go
-          package-name: cli
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Upload Binaries
