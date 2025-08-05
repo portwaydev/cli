@@ -1,6 +1,6 @@
 app:
   id: ""
-  slug: portway
+  slug: cli
 environments:
   production:
     compose_files:

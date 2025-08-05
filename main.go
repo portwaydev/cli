@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/charmbracelet/log"
 	"github.com/mitchellh/go-homedir"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -46,6 +47,8 @@ func NewRootCmd() *cobra.Command {
 }
 
 func init() {
+	log.SetReportTimestamp(false)
+
 	pterm.Success.Prefix.Text = "✅"
 	pterm.Success.Prefix.Style = &pterm.ThemeDefault.SuccessMessageStyle
 	pterm.Info.Prefix.Text = "ℹ️"

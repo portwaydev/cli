@@ -4,15 +4,19 @@ import (
 	initcmd "cli/cmd/init"
 	"cli/pkg/compose"
 	"cli/pkg/config"
+	"cli/pkg/util"
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"time"
 
 	"cli/pkg/api"
 
+	"github.com/charmbracelet/huh"
 	"github.com/compose-spec/compose-go/v2/types"
+	"github.com/fatih/color"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
@@ -149,18 +153,6 @@ func createEnvironmentComposeFile(
 		return nil, fmt.Errorf("failed to unmarshal compose config: %w", err)
 	}
 
-	if version == "" {
-		version, _ = determineVersion(yamlCompose)
-		version, err = pterm.DefaultInteractiveTextInput.WithDefaultValue(version).Show("Enter version")
-		if err != nil {
-			return nil, fmt.Errorf("failed to get version input: %w", err)
-		}
-
-		if version == "" {
-			return nil, fmt.Errorf("version cannot be empty")
-		}
-	}
-
 	orgSlug, err := cfg.GetOrgSlug(client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get organization slug: %w", err)
@@ -180,6 +172,50 @@ func createEnvironmentComposeFile(
 	)
 }
 
+func getConfig(configPath string, cmd *cobra.Command, args []string) (*config.Config, error) {
+	cfg, err := config.LoadConfig(configPath)
+	if err != nil {
+		err = initcmd.NewInitCmd().RunE(cmd, args)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize config: %w", err)
+		}
+		cfg, err = config.LoadConfig(configPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load config: %w", err)
+		}
+	}
+
+	return cfg, nil
+}
+
+func printServicesTable(composeConfig *types.Project) {
+	fmt.Println()
+	pterm.Printf("Found %s services\n\n", pterm.Cyan(fmt.Sprintf("%d", len(composeConfig.Services))))
+
+	tableData := pterm.TableData{{"Service", "Image", "Build Context"}}
+	// Get all service names and sort them
+	serviceNames := make([]string, 0, len(composeConfig.Services))
+	for serviceName := range composeConfig.Services {
+		serviceNames = append(serviceNames, serviceName)
+	}
+	sort.Strings(serviceNames)
+
+	// Add services to table in sorted order
+	for _, serviceName := range serviceNames {
+		service := composeConfig.Services[serviceName]
+		buildStatus := pterm.Red("No")
+		if service.Build != nil {
+			buildStatus = pterm.Green("Yes")
+		}
+		tableData = append(tableData, []string{
+			pterm.Bold.Sprint(serviceName),
+			pterm.Cyan(service.Image),
+			buildStatus,
+		})
+	}
+	pterm.DefaultTable.WithHasHeader().WithHeaderRowSeparator("-").WithData(tableData).Render()
+}
+
 func NewDeployCmd() *cobra.Command {
 	var configPath string
 	var envName string
@@ -191,16 +227,29 @@ func NewDeployCmd() *cobra.Command {
 		Long:         "Deploy a docker compose",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.LoadConfig(configPath)
+			if hasUncommittedChanges() {
+				if !util.IsCI() {
+					if err := confirmUncommittedChanges(); err != nil {
+						return err
+					}
+				} else {
+					pterm.Printf("%s  Warning: There are uncommitted changes\n", pterm.Yellow("⚠️"))
+				}
+			}
+
+			client, err := api.NewViperClientWithResponses()
 			if err != nil {
-				err = initcmd.NewInitCmd().RunE(cmd, args)
-				if err != nil {
-					return fmt.Errorf("failed to initialize config: %w", err)
-				}
-				cfg, err = config.LoadConfig(configPath)
-				if err != nil {
-					return fmt.Errorf("failed to load config: %w", err)
-				}
+				fmt.Println()
+				fmt.Printf("Failed to create client.\n")
+				fmt.Printf("Error message: %s\n", color.RedString(err.Error()))
+				fmt.Println()
+				fmt.Printf("Please check your API key and try again.\n\n")
+				os.Exit(1)
+			}
+
+			cfg, err := getConfig(configPath, cmd, args)
+			if err != nil {
+				return err
 			}
 
 			env, ok := cfg.Environments[envName]
@@ -225,32 +274,7 @@ func NewDeployCmd() *cobra.Command {
 				return fmt.Errorf("failed to get services with build: %w", err)
 			}
 
-			fmt.Println()
-			pterm.Printf("Found %s services\n\n", pterm.Cyan(fmt.Sprintf("%d", len(composeConfig.Services))))
-
-			tableData := pterm.TableData{{"Service", "Image", "Build Context"}}
-			// Get all service names and sort them
-			serviceNames := make([]string, 0, len(composeConfig.Services))
-			for serviceName := range composeConfig.Services {
-				serviceNames = append(serviceNames, serviceName)
-			}
-			sort.Strings(serviceNames)
-
-			// Add services to table in sorted order
-			for _, serviceName := range serviceNames {
-				service := composeConfig.Services[serviceName]
-				buildStatus := pterm.Red("No")
-				if service.Build != nil {
-					buildStatus = pterm.Green("Yes")
-				}
-				tableData = append(tableData, []string{
-					pterm.Bold.Sprint(serviceName),
-					pterm.Cyan(service.Image),
-					buildStatus,
-				})
-			}
-			pterm.DefaultTable.WithHasHeader().WithHeaderRowSeparator("-").WithData(tableData).Render()
-			fmt.Println()
+			printServicesTable(composeConfig)
 
 			// // Building images
 			// servicesWithBuild := composeConfig.GetServicesWithBuild()
@@ -296,10 +320,22 @@ func NewDeployCmd() *cobra.Command {
 			// 	fmt.Println()
 			// }
 
-			client, err := api.NewViperClientWithResponses()
-			if err != nil {
-				pterm.Printf("%s Failed to create client\n", pterm.Red("❌"))
-				return fmt.Errorf("failed to create client: %w", err)
+			if version == "" {
+				version, _ = determineVersion()
+
+				form := huh.NewForm(
+					huh.NewGroup(
+						huh.NewInput().
+							Title("Enter a version").
+							Value(&version).
+							Placeholder("Enter a version"),
+					),
+				)
+
+				err := form.Run()
+				if err != nil {
+					return fmt.Errorf("failed to get version input: %w", err)
+				}
 			}
 
 			composeFileResponse, err := createEnvironmentComposeFile(
@@ -314,11 +350,15 @@ func NewDeployCmd() *cobra.Command {
 			}
 
 			if composeFileResponse.StatusCode() != 200 {
-				pterm.Printf("%s Failed to create compose file\n", pterm.Red("❌"))
+				fmt.Println()
+				color.Red("Failed to create compose file.")
+				fmt.Println()
 				return fmt.Errorf("failed to create compose file")
 			}
 
-			pterm.Printf("✅ Created new version of compose file.\n")
+			fmt.Println()
+			fmt.Printf("Created version \"%s\" of compose file.\n", color.GreenString(version))
+			fmt.Println()
 
 			deployResponse, err := client.DeployEnvironmentComposeFileWithResponse(
 				context.Background(),
@@ -330,19 +370,25 @@ func NewDeployCmd() *cobra.Command {
 			}
 
 			if deployResponse.StatusCode() != 200 {
-				pterm.Printf("%s Failed to deploy environment compose file\n", pterm.Red("❌"))
+				fmt.Println()
+				color.Red("Failed to deploy environment compose file.\n")
+				fmt.Println()
 				return fmt.Errorf("failed to deploy environment compose file")
 			}
 
 			deployments := deployResponse.JSON200.Deployments
 
 			if len(deployments) == 0 {
-				pterm.Printf("No targets found to deploy to.\n")
+				fmt.Println()
+				color.Yellow("No deployment targets found.")
+				fmt.Println("This can happen if you have deleted existing targets, have no branches configured, or have not set up any deployment targets.")
+				fmt.Println()
 				return nil
 			}
 
-			fmt.Println()
-			spinner, _ := pterm.DefaultSpinner.Start("Waiting for deployments to complete...")
+			spinner := NewSpinner()
+			go spinner.Run()
+
 			// Wait for all deployments to complete
 			for _, d := range deployments {
 				for {
@@ -367,8 +413,9 @@ func NewDeployCmd() *cobra.Command {
 				}
 			}
 
-			spinner.Success("Deployments completed")
-
+			ExitSpinner(spinner, "Deployments completed.")
+			fmt.Println()
+			fmt.Println()
 
 			return nil
 		},

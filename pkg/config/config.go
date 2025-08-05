@@ -34,6 +34,10 @@ func (c *Config) GetOrgSlug(client *api.ClientWithResponses) (string, error) {
 		return "", err
 	}
 
+	if whoami.StatusCode() != 200 {
+		return "", fmt.Errorf("failed to get organization: %d", whoami.StatusCode())
+	}
+
 	organization := whoami.JSON200.Organization
 	if organization == nil {
 		return "", fmt.Errorf("organization not found")

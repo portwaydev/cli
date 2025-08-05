@@ -1,41 +1,50 @@
 package deploy
 
 import (
-	"cli/pkg/util"
-	"crypto/md5"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
-	"github.com/pterm/pterm"
+	"github.com/charmbracelet/huh"
 )
 
-func determineVersion(composeFile []byte) (string, error) {
-	// Check for pending changes
+func hasUncommittedChanges() bool {
 	statusCmd := exec.Command("git", "status", "--porcelain")
 	statusOutput, err := statusCmd.Output()
-	if err == nil && len(statusOutput) > 0 {
-		if !util.IsCI() {
-			response, err := pterm.DefaultInteractiveTextInput.Show("There are uncommitted changes. Continue? [y/N]")
-			if err != nil {
-				return "", fmt.Errorf("failed to get input: %w", err)
-			}
-			if response != "y" && response != "Y" {
-				return "", fmt.Errorf("aborted due to uncommitted changes")
-			}
-		} else {
-			pterm.Printf("%s  Warning: There are uncommitted changes\n", pterm.Yellow("⚠️"))
-		}
+	return err == nil && len(statusOutput) > 0
+}
+
+func confirmUncommittedChanges() error {
+	confirmed := false
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("There are uncommitted changes in your working directory. Continue?").
+				Value(&confirmed),
+		),
+	)
+
+	err := form.Run()
+	if err != nil {
+		return fmt.Errorf("failed to run prompt: %w", err)
 	}
 
+	if !confirmed {
+		fmt.Print("\nAborted due to uncommitted changes.\n\n")
+		os.Exit(1)
+	}
+
+	return nil
+}
+
+func determineVersion() (string, error) {
 	// Get git commit hash
 	cmd := exec.Command("git", "rev-parse", "--short", "HEAD")
 	output, err := cmd.Output()
 	if err != nil {
-		// Git command failed, fallback to MD5 hash of file
-		hash := md5.Sum(composeFile)
-		version := fmt.Sprintf("%x", hash)[:8] // Use first 8 chars of MD5 hash
-		return version, nil
+		return "", fmt.Errorf("failed to get git commit hash: %w", err)
 	}
 
 	version := strings.TrimSpace(string(output))
