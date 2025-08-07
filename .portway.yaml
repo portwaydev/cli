@@ -4,4 +4,4 @@ app:
 environments:
   production:
     compose_files:
-    - compose.mealie.yaml
+      - file:compose.mealie.yaml

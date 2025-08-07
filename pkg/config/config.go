@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/fatih/color"
 	"gopkg.in/yaml.v2"
 )
 
@@ -19,6 +21,35 @@ type App struct {
 // Environment represents configuration for a specific environment
 type Environment struct {
 	ComposeFiles []string `yaml:"compose_files"`
+}
+
+func (e *Environment) GetComposeFiles() ([]string, error) {
+	files := []string{}
+	
+	for _, file := range e.ComposeFiles {
+		resolverType := strings.Split(file, ":")[0]
+
+		if len(resolverType) == 1 {
+			resolverType = "file"
+		}
+
+		resolver, ok := composeFileTypes[resolverType]
+		if !ok {
+			fmt.Println()
+			fmt.Printf("%s compose file type: %s\n", color.RedString("Invalid"), color.YellowString(file))
+			fmt.Println()
+			return nil, fmt.Errorf("invalid compose file type: %s", file)
+		}
+
+		file = strings.TrimPrefix(file, resolverType+":")
+		resolvedFile, err := resolver(file)
+		if err != nil {
+			return nil, err
+		}
+
+		files = append(files, resolvedFile)
+	}
+	return files, nil
 }
 
 // Config represents the full application configuration

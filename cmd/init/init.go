@@ -114,7 +114,7 @@ func NewInitCmd() *cobra.Command {
 
 			envName := "production"
 			environments[envName] = config.Environment{
-				ComposeFiles: []string{composeFile},
+				ComposeFiles: []string{"file:" + composeFile},
 			}
 			cfg.Environments = environments
 

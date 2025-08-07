@@ -267,7 +267,12 @@ func NewDeployCmd() *cobra.Command {
 				}
 			}
 
-			composeFiles := env.ComposeFiles
+			composeFiles, err := env.GetComposeFiles()
+			if err != nil {
+				pterm.Printf("%s Failed to get compose files\n", pterm.Red("❌"))
+				return fmt.Errorf("failed to get compose files: %w", err)
+			}
+			
 			composeConfig, err := compose.LoadComposeConfig(composeFiles)
 			if err != nil {
 				pterm.Printf("%s Failed to load compose config\n", pterm.Red("❌"))
