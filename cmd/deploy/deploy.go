@@ -357,7 +357,7 @@ func NewDeployCmd() *cobra.Command {
 			}
 
 			fmt.Println()
-			fmt.Printf("Created version \"%s\" of compose file.\n", color.GreenString(version))
+			fmt.Printf("Created version %s of compose file.\n", color.GreenString(version))
 			fmt.Println()
 
 			deployResponse, err := client.DeployEnvironmentComposeFileWithResponse(
@@ -396,11 +396,17 @@ func NewDeployCmd() *cobra.Command {
 						context.Background(),
 						d.Id.String(),
 					)
+
 					if err != nil {
+						ExitSpinner(spinner, color.RedString("Deployment failed."))
+						fmt.Println()
 						return fmt.Errorf("failed to get deployment: %w", err)
 					}
 
 					if deployment.JSON200.Status == "failed" {
+						message := "An error happened while trying to deploy your application. Please try again later."
+						ExitSpinner(spinner, color.RedString(message))
+						fmt.Println()
 						return fmt.Errorf("deployment failed")
 					}
 

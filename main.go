@@ -61,13 +61,13 @@ func main() {
 	rootCmd := NewRootCmd()
 
 	viper.BindEnv("url", "PORTWAY_URL")
-	viper.SetDefault("url", "http://localhost:3000")
+	viper.SetDefault("url", "https://portway.dev")
 
 	viper.BindPFlag("token", rootCmd.PersistentFlags().Lookup("token"))
 	viper.BindEnv("token", "PORTWAY_API_KEY")
 	viper.SetDefault("token", "")
 
-	viper.SetDefault("autoupdate", false)
+	viper.SetDefault("autoupdate", true)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
