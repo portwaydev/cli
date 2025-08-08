@@ -53,7 +53,7 @@ func ConfigLintMessages() error {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewConfirm().
-				Title("Found validation issues. Do you want to continue?").
+				Title("Found linting issues. Do you want to continue?").
 				Value(&confirmed),
 		),
 	)
@@ -64,7 +64,7 @@ func ConfigLintMessages() error {
 	}
 
 	if !confirmed {
-		fmt.Print("\nAborted due to validation issues.\n\n")
+		fmt.Print("\nAborted due to linting issues.\n\n")
 		os.Exit(1)
 	}
 

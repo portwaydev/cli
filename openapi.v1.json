@@ -1,0 +1,1379 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Deployment Health API",
+    "description": "API for getting deployment health and troubleshooting information",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/deployment/{deploymentId}/health": {
+      "get": {
+        "summary": "Get deployment health",
+        "description": "Gets comprehensive health information for a deployment including pod status, events, and troubleshooting suggestions",
+        "operationId": "getDeploymentHealth",
+        "parameters": [
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "description": "Deployment ID",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deployment health information retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deploymentId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": ["pending", "in_progress", "failed", "deployed"]
+                    },
+                    "healthScore": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 100,
+                      "description": "Health score from 0-100"
+                    },
+                    "summary": {
+                      "type": "string",
+                      "description": "Human-readable health summary"
+                    },
+                    "health": {
+                      "type": "object",
+                      "properties": {
+                        "helm": {
+                          "type": "object"
+                        },
+                        "pods": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "phase": {
+                                "type": "string"
+                              },
+                              "ready": {
+                                "type": "boolean"
+                              },
+                              "restarts": {
+                                "type": "number"
+                              },
+                              "age": {
+                                "type": "string"
+                              },
+                              "conditions": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "type": {
+                                      "type": "string"
+                                    },
+                                    "status": {
+                                      "type": "string"
+                                    },
+                                    "reason": {
+                                      "type": "string"
+                                    },
+                                    "message": {
+                                      "type": "string"
+                                    },
+                                    "lastTransitionTime": {
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              },
+                              "containerStatuses": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "ready": {
+                                      "type": "boolean"
+                                    },
+                                    "restartCount": {
+                                      "type": "number"
+                                    },
+                                    "state": {
+                                      "type": "object"
+                                    },
+                                    "lastState": {
+                                      "type": "object"
+                                    }
+                                  }
+                                }
+                              },
+                              "node": {
+                                "type": "string"
+                              },
+                              "ip": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "events": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string"
+                              },
+                              "reason": {
+                                "type": "string"
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "count": {
+                                "type": "number"
+                              },
+                              "firstTimestamp": {
+                                "type": "string"
+                              },
+                              "lastTimestamp": {
+                                "type": "string"
+                              },
+                              "involvedObject": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "source": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "resources": {
+                          "type": "object",
+                          "properties": {
+                            "deployments": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "ready": {
+                                    "type": "number"
+                                  },
+                                  "desired": {
+                                    "type": "number"
+                                  },
+                                  "updated": {
+                                    "type": "number"
+                                  },
+                                  "available": {
+                                    "type": "number"
+                                  },
+                                  "conditions": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "type": {
+                                          "type": "string"
+                                        },
+                                        "status": {
+                                          "type": "string"
+                                        },
+                                        "reason": {
+                                          "type": "string"
+                                        },
+                                        "message": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "services": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "type": {
+                                    "type": "string"
+                                  },
+                                  "clusterIP": {
+                                    "type": "string"
+                                  },
+                                  "ports": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "port": {
+                                          "type": "number"
+                                        },
+                                        "targetPort": {
+                                          "type": "string",
+                                          "description": "Port number or name that containers expose (can be numeric string like '8080' or named port like 'http')"
+                                        },
+                                        "protocol": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "ingresses": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "hosts": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "ready": {
+                                    "type": "boolean"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "troubleshooting": {
+                      "type": "object",
+                      "properties": {
+                        "healthScore": {
+                          "type": "number"
+                        },
+                        "summary": {
+                          "type": "string"
+                        },
+                        "suggestions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "quickCommands": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "lastHealthCheck": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "error": {
+                      "type": "string",
+                      "description": "Error message if health check failed"
+                    }
+                  },
+                  "required": [
+                    "deploymentId",
+                    "status",
+                    "healthScore",
+                    "summary"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - user doesn't have access to this deployment"
+          },
+          "404": {
+            "description": "Deployment not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/v1/deployment/{deploymentId}": {
+      "get": {
+        "summary": "Get a deployment",
+        "description": "Gets a deployment",
+        "operationId": "getDeployment",
+        "parameters": [
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "description": "Deployment ID",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Compose file created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Deployment"
+                    },
+                    {
+                      "properties": {
+                        "logs": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "log": {
+                                "type": "string"
+                              },
+                              "stream": {
+                                "type": "string"
+                              },
+                              "timestamp": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            },
+                            "required": ["log", "stream", "timestamp"]
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZodError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid credentials or organization access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Environment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Environment not found"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/environment-compose-files/{composeFileId}/deploy": {
+      "post": {
+        "summary": "Deploy Environment Compose File",
+        "description": "Deploy an environment compose file by creating a deployment record",
+        "operationId": "deployEnvironmentComposeFile",
+        "parameters": [
+          {
+            "name": "composeFileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The ID of the compose file to deploy"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deployment created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deployments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "description": "The deployment ID"
+                          },
+                          "targetId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "description": "The target ID"
+                          },
+                          "environmentComposeFileId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "description": "The compose file ID"
+                          },
+                          "status": {
+                            "type": "string",
+                            "description": "The deployment status"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Creation timestamp"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Last update timestamp"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "required": ["deployments"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZodError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - User does not have access to this organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Compose file not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Compose file not found"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgSlug}/apps/{appSlug}/environments/{envSlug}/compose-file": {
+      "post": {
+        "summary": "Create a new compose file for an environment",
+        "description": "Creates a new compose file for the specified environment",
+        "operationId": "createEnvironmentComposeFile",
+        "parameters": [
+          {
+            "name": "orgSlug",
+            "in": "path",
+            "required": true,
+            "description": "Organization slug",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]+$"
+            }
+          },
+          {
+            "name": "appSlug",
+            "in": "path",
+            "required": true,
+            "description": "Application slug",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]+$"
+            }
+          },
+          {
+            "name": "envSlug",
+            "in": "path",
+            "required": true,
+            "description": "Environment slug",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]+$"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Compose file data",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "string",
+                    "description": "Version of the compose file",
+                    "example": "1.0.0"
+                  },
+                  "composeRaw": {
+                    "type": "string",
+                    "description": "Raw compose file content",
+                    "example": "version: '3.8'\nservices:\n  web:\n    image: nginx:latest\n    ports:\n      - '80:80'"
+                  },
+                  "composeNoramlized": {
+                    "type": "object",
+                    "description": "Docker compose configuration as JSON object",
+                    "example": {
+                      "version": "3.8",
+                      "services": {
+                        "web": {
+                          "image": "nginx:latest",
+                          "ports": ["80:80"]
+                        }
+                      }
+                    }
+                  }
+                },
+                "required": ["version", "compose", "rawCompose"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Compose file created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/EnvironmentComposeFile"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "environment": {
+                          "$ref": "#/components/schemas/Environment"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZodError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid credentials or organization access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Environment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Environment not found"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgSlug}/apps/{appSlug}/environments/{envSlug}": {
+      "put": {
+        "summary": "Create or update an environment",
+        "description": "Creates a new environment or updates an existing one within an application",
+        "operationId": "createOrUpdateEnvironment",
+        "parameters": [
+          {
+            "name": "orgSlug",
+            "in": "path",
+            "required": true,
+            "description": "Organization slug",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]+$"
+            }
+          },
+          {
+            "name": "appSlug",
+            "in": "path",
+            "required": true,
+            "description": "Application slug",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]+$"
+            }
+          },
+          {
+            "name": "envSlug",
+            "in": "path",
+            "required": true,
+            "description": "Environment slug",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]+$"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Environment data",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Environment name",
+                    "example": "Production"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Environment created or updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Environment"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "targets": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Target"
+                          }
+                        },
+                        "app": {
+                          "$ref": "#/components/schemas/App"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZodError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid credentials or organization access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Application not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "App not found"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgSlug}/apps/{appSlug}": {
+      "get": {
+        "summary": "Get an application",
+        "description": "Retrieves an application by slug with its environments, targets, and compose files",
+        "operationId": "getApp",
+        "parameters": [
+          {
+            "name": "orgSlug",
+            "in": "path",
+            "required": true,
+            "description": "Organization slug",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]+$"
+            }
+          },
+          {
+            "name": "appSlug",
+            "in": "path",
+            "required": true,
+            "description": "Application slug",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Application retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/App"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "environments": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "allOf": [
+                              {
+                                "$ref": "#/components/schemas/Environment"
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "composeFiles": {
+                                    "type": "array",
+                                    "items": {
+                                      "$ref": "#/components/schemas/EnvironmentComposeFile"
+                                    }
+                                  },
+                                  "targets": {
+                                    "type": "array",
+                                    "items": {
+                                      "$ref": "#/components/schemas/Target"
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid credentials or organization access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Application not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "App not found"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Create or update an application",
+        "description": "Creates a new application or updates an existing one with optional environments",
+        "operationId": "createOrUpdateApp",
+        "parameters": [
+          {
+            "name": "orgSlug",
+            "in": "path",
+            "required": true,
+            "description": "Organization slug",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]+$"
+            }
+          },
+          {
+            "name": "appSlug",
+            "in": "path",
+            "required": true,
+            "description": "Application slug",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]+$"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Application data with optional environments",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Application name",
+                    "example": "My App"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Application description",
+                    "example": "A sample application"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Application created or updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/App"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "environments": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "allOf": [
+                              {
+                                "$ref": "#/components/schemas/Environment"
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "targets": {
+                                    "type": "array",
+                                    "items": {
+                                      "$ref": "#/components/schemas/Target"
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "organization": {
+                          "$ref": "#/components/schemas/Organization"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZodError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid credentials or organization access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/whoami": {
+      "get": {
+        "summary": "Whoami",
+        "description": "Whoami",
+        "responses": {
+          "200": {
+            "description": "Whoami",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "userId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "key": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "permissions": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "userId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "metadata": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "organization": {
+                      "$ref": "#/components/schemas/Organization"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Organization": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "logo": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "stripeCustomerId": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "name", "slug", "createdAt"]
+      },
+      "App": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["id", "name", "slug", "createdAt", "updatedAt"]
+      },
+      "Target": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["id", "name", "slug", "createdAt", "updatedAt"]
+      },
+      "Deployment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          },
+          "versionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "appId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "versionId",
+          "appId",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "Environment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["id", "name", "slug", "createdAt", "updatedAt"]
+      },
+      "EnvironmentComposeFile": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "environmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rawCompose": {
+            "type": "string"
+          },
+          "compose": {
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "rawCompose",
+          "version",
+          "environmentId",
+          "compose",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ZodError": {
+        "type": "object",
+        "properties": {
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": ["code", "message", "path"]
+            }
+          }
+        },
+        "required": ["errors"]
+      }
+    }
+  }
+}

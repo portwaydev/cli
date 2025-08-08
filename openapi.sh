@@ -1,1 +1,1 @@
-go tool oapi-codegen -config openapi.client.yaml ../openapi.v1.json
+go tool oapi-codegen -config openapi.client.yaml ./openapi.v1.json

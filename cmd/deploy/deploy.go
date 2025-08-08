@@ -19,6 +19,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/fatih/color"
+	"github.com/google/uuid"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
@@ -131,6 +132,56 @@ import (
 
 // 	return uuid.Nil, fmt.Errorf("production target not found")
 // }
+
+func printHealth(client *api.ClientWithResponses, deploymentId uuid.UUID) error {
+	health, err := client.GetDeploymentHealthWithResponse(
+		context.Background(),
+		deploymentId,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get deployment health: %w", err)
+	}
+
+	if health.StatusCode() != 200 {
+		return fmt.Errorf("failed to get deployment health")
+	}
+
+	info := health.JSON200
+
+	fmt.Println(info.Summary)
+	fmt.Println()
+
+	fmt.Println()
+	podTableData := pterm.TableData{{"Pod", "Phase", "Restarts"}}
+	for _, pod := range *info.Health.Pods {
+		podTableData = append(podTableData, []string{
+			*pod.Name,
+			*pod.Phase,
+			fmt.Sprintf("%d", int(*pod.Restarts)),
+		})
+	}
+	pterm.DefaultTable.WithHasHeader().WithHeaderRowSeparator("-").WithData(podTableData).Render()
+	
+	resourcesTableData := pterm.TableData{{"Service", "Ready", "Desired"}}
+	for _, service := range *info.Health.Resources.Deployments {
+		resourcesTableData = append(resourcesTableData, []string{
+			*service.Name, 
+			fmt.Sprintf("%d", int(*service.Ready)),
+			fmt.Sprintf("%d", int(*service.Desired)),
+		})
+	}
+	pterm.DefaultTable.WithHasHeader().WithHeaderRowSeparator("-").WithData(resourcesTableData).Render()
+
+	if len(*info.Troubleshooting.Suggestions) > 0 {
+		fmt.Println()
+		fmt.Println(color.YellowString("Suggestions:"))
+		for _, suggestion := range *info.Troubleshooting.Suggestions {
+			fmt.Println(color.YellowString(suggestion))
+		}
+	}
+
+	return nil
+}
 
 func createEnvironmentComposeFile(
 	client *api.ClientWithResponses,
@@ -422,11 +473,43 @@ func NewDeployCmd() *cobra.Command {
 			}
 
 			spinner := NewSpinner()
-			go spinner.Run()
+			
+			// Channel to signal spinner completion/interruption
+			done := make(chan error, 1)
+			
+			go func() {
+				// Run spinner in background and capture if it was interrupted
+				model, err := spinner.Run()
+				if err != nil {
+					done <- err
+					return
+				}
+				
+				// Check if the spinner was quitting (possibly due to Ctrl+C)
+				if spinnerModel, ok := model.(spinnerModel); ok && spinnerModel.quitting {
+					done <- fmt.Errorf("operation interrupted by user")
+					return
+				}
+				
+				done <- nil
+			}()
 
-			// Wait for all deployments to complete
+			// Wait for all deployments to complete or spinner interruption
 			for _, d := range deployments {
 				for {
+					// Check if spinner was interrupted
+					select {
+					case err := <-done:
+						if err != nil {
+							fmt.Println()
+							fmt.Println(color.RedString("Deployment interrupted."))
+							fmt.Println()
+							return err
+						}
+					default:
+						// Continue with deployment check
+					}
+
 					deployment, err := client.GetDeploymentWithResponse(
 						context.Background(),
 						d.Id.String(),
@@ -438,10 +521,27 @@ func NewDeployCmd() *cobra.Command {
 						return fmt.Errorf("failed to get deployment: %w", err)
 					}
 
+					logs := *deployment.JSON200.Logs
+					for _, l := range logs {
+						log := logMsg{
+							timestamp: l.Timestamp,
+							log:       l.Log,
+							stream:    l.Stream,
+						}
+						spinner.Send(log)
+					}
+
 					if deployment.JSON200.Status == "failed" {
 						message := "An error happened while trying to deploy your application. Please try again later."
 						ExitSpinner(spinner, color.RedString(message))
 						fmt.Println()
+						err = printHealth(client, *d.Id)
+						if err != nil {
+							fmt.Println()
+							fmt.Println(color.RedString("Failed to print health."))
+							fmt.Println(color.RedString(err.Error()))
+							fmt.Println()
+						}
 						return fmt.Errorf("deployment failed")
 					}
 
@@ -457,6 +557,8 @@ func NewDeployCmd() *cobra.Command {
 			ExitSpinner(spinner, "Deployments completed.")
 			fmt.Println()
 			fmt.Println()
+
+			printHealth(client, *deployments[0].Id)
 
 			return nil
 		},

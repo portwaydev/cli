@@ -200,6 +200,9 @@ type ClientInterface interface {
 	// GetDeployment request
 	GetDeployment(ctx context.Context, deploymentId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetDeploymentHealth request
+	GetDeploymentHealth(ctx context.Context, deploymentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeployEnvironmentComposeFile request
 	DeployEnvironmentComposeFile(ctx context.Context, composeFileId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -227,6 +230,18 @@ type ClientInterface interface {
 
 func (c *Client) GetDeployment(ctx context.Context, deploymentId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetDeploymentRequest(c.Server, deploymentId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDeploymentHealth(ctx context.Context, deploymentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeploymentHealthRequest(c.Server, deploymentId)
 	if err != nil {
 		return nil, err
 	}
@@ -362,6 +377,40 @@ func NewGetDeploymentRequest(server string, deploymentId string) (*http.Request,
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/deployment/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetDeploymentHealthRequest generates requests for GetDeploymentHealth
+func NewGetDeploymentHealthRequest(server string, deploymentId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "deploymentId", runtime.ParamLocationPath, deploymentId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/deployment/%s/health", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -703,6 +752,9 @@ type ClientWithResponsesInterface interface {
 	// GetDeploymentWithResponse request
 	GetDeploymentWithResponse(ctx context.Context, deploymentId string, reqEditors ...RequestEditorFn) (*GetDeploymentResponse, error)
 
+	// GetDeploymentHealthWithResponse request
+	GetDeploymentHealthWithResponse(ctx context.Context, deploymentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetDeploymentHealthResponse, error)
+
 	// DeployEnvironmentComposeFileWithResponse request
 	DeployEnvironmentComposeFileWithResponse(ctx context.Context, composeFileId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeployEnvironmentComposeFileResponse, error)
 
@@ -731,9 +783,21 @@ type ClientWithResponsesInterface interface {
 type GetDeploymentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *Deployment
-	JSON400      *ZodError
-	JSON401      *struct {
+	JSON200      *struct {
+		AppId     openapi_types.UUID `json:"appId"`
+		CreatedAt time.Time          `json:"createdAt"`
+		Id        openapi_types.UUID `json:"id"`
+		Logs      *[]struct {
+			Log       string    `json:"log"`
+			Stream    string    `json:"stream"`
+			Timestamp time.Time `json:"timestamp"`
+		} `json:"logs,omitempty"`
+		Status    string             `json:"status"`
+		UpdatedAt time.Time          `json:"updatedAt"`
+		VersionId openapi_types.UUID `json:"versionId"`
+	}
+	JSON400 *ZodError
+	JSON401 *struct {
 		Error string `json:"error"`
 	}
 	JSON404 *struct {
@@ -751,6 +815,119 @@ func (r GetDeploymentResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetDeploymentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetDeploymentHealthResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		DeploymentId openapi_types.UUID `json:"deploymentId"`
+
+		// Error Error message if health check failed
+		Error  *string `json:"error,omitempty"`
+		Health *struct {
+			Events *[]struct {
+				Count          *float32 `json:"count,omitempty"`
+				FirstTimestamp *string  `json:"firstTimestamp,omitempty"`
+				InvolvedObject *struct {
+					Kind *string `json:"kind,omitempty"`
+					Name *string `json:"name,omitempty"`
+				} `json:"involvedObject,omitempty"`
+				LastTimestamp *string `json:"lastTimestamp,omitempty"`
+				Message       *string `json:"message,omitempty"`
+				Reason        *string `json:"reason,omitempty"`
+				Source        *string `json:"source,omitempty"`
+				Type          *string `json:"type,omitempty"`
+			} `json:"events,omitempty"`
+			Helm *map[string]interface{} `json:"helm,omitempty"`
+			Pods *[]struct {
+				Age        *string `json:"age,omitempty"`
+				Conditions *[]struct {
+					LastTransitionTime *string `json:"lastTransitionTime,omitempty"`
+					Message            *string `json:"message,omitempty"`
+					Reason             *string `json:"reason,omitempty"`
+					Status             *string `json:"status,omitempty"`
+					Type               *string `json:"type,omitempty"`
+				} `json:"conditions,omitempty"`
+				ContainerStatuses *[]struct {
+					LastState    *map[string]interface{} `json:"lastState,omitempty"`
+					Name         *string                 `json:"name,omitempty"`
+					Ready        *bool                   `json:"ready,omitempty"`
+					RestartCount *float32                `json:"restartCount,omitempty"`
+					State        *map[string]interface{} `json:"state,omitempty"`
+				} `json:"containerStatuses,omitempty"`
+				Ip       *string  `json:"ip,omitempty"`
+				Name     *string  `json:"name,omitempty"`
+				Node     *string  `json:"node,omitempty"`
+				Phase    *string  `json:"phase,omitempty"`
+				Ready    *bool    `json:"ready,omitempty"`
+				Restarts *float32 `json:"restarts,omitempty"`
+			} `json:"pods,omitempty"`
+			Resources *struct {
+				Deployments *[]struct {
+					Available  *float32 `json:"available,omitempty"`
+					Conditions *[]struct {
+						Message *string `json:"message,omitempty"`
+						Reason  *string `json:"reason,omitempty"`
+						Status  *string `json:"status,omitempty"`
+						Type    *string `json:"type,omitempty"`
+					} `json:"conditions,omitempty"`
+					Desired *float32 `json:"desired,omitempty"`
+					Name    *string  `json:"name,omitempty"`
+					Ready   *float32 `json:"ready,omitempty"`
+					Updated *float32 `json:"updated,omitempty"`
+				} `json:"deployments,omitempty"`
+				Ingresses *[]struct {
+					Hosts *[]string `json:"hosts,omitempty"`
+					Name  *string   `json:"name,omitempty"`
+					Ready *bool     `json:"ready,omitempty"`
+				} `json:"ingresses,omitempty"`
+				Services *[]struct {
+					ClusterIP *string `json:"clusterIP,omitempty"`
+					Name      *string `json:"name,omitempty"`
+					Ports     *[]struct {
+						Port     *float32 `json:"port,omitempty"`
+						Protocol *string  `json:"protocol,omitempty"`
+
+						// TargetPort Port number or name that containers expose (can be numeric string like '8080' or named port like 'http')
+						TargetPort *string `json:"targetPort,omitempty"`
+					} `json:"ports,omitempty"`
+					Type *string `json:"type,omitempty"`
+				} `json:"services,omitempty"`
+			} `json:"resources,omitempty"`
+		} `json:"health,omitempty"`
+
+		// HealthScore Health score from 0-100
+		HealthScore     float32                      `json:"healthScore"`
+		LastHealthCheck *time.Time                   `json:"lastHealthCheck,omitempty"`
+		Status          GetDeploymentHealth200Status `json:"status"`
+
+		// Summary Human-readable health summary
+		Summary         string `json:"summary"`
+		Troubleshooting *struct {
+			HealthScore   *float32  `json:"healthScore,omitempty"`
+			QuickCommands *[]string `json:"quickCommands,omitempty"`
+			Suggestions   *[]string `json:"suggestions,omitempty"`
+			Summary       *string   `json:"summary,omitempty"`
+		} `json:"troubleshooting,omitempty"`
+	}
+}
+type GetDeploymentHealth200Status string
+
+// Status returns HTTPResponse.Status
+func (r GetDeploymentHealthResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeploymentHealthResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1018,6 +1195,15 @@ func (c *ClientWithResponses) GetDeploymentWithResponse(ctx context.Context, dep
 	return ParseGetDeploymentResponse(rsp)
 }
 
+// GetDeploymentHealthWithResponse request returning *GetDeploymentHealthResponse
+func (c *ClientWithResponses) GetDeploymentHealthWithResponse(ctx context.Context, deploymentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetDeploymentHealthResponse, error) {
+	rsp, err := c.GetDeploymentHealth(ctx, deploymentId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeploymentHealthResponse(rsp)
+}
+
 // DeployEnvironmentComposeFileWithResponse request returning *DeployEnvironmentComposeFileResponse
 func (c *ClientWithResponses) DeployEnvironmentComposeFileWithResponse(ctx context.Context, composeFileId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeployEnvironmentComposeFileResponse, error) {
 	rsp, err := c.DeployEnvironmentComposeFile(ctx, composeFileId, reqEditors...)
@@ -1111,7 +1297,19 @@ func ParseGetDeploymentResponse(rsp *http.Response) (*GetDeploymentResponse, err
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Deployment
+		var dest struct {
+			AppId     openapi_types.UUID `json:"appId"`
+			CreatedAt time.Time          `json:"createdAt"`
+			Id        openapi_types.UUID `json:"id"`
+			Logs      *[]struct {
+				Log       string    `json:"log"`
+				Stream    string    `json:"stream"`
+				Timestamp time.Time `json:"timestamp"`
+			} `json:"logs,omitempty"`
+			Status    string             `json:"status"`
+			UpdatedAt time.Time          `json:"updatedAt"`
+			VersionId openapi_types.UUID `json:"versionId"`
+		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1141,6 +1339,122 @@ func ParseGetDeploymentResponse(rsp *http.Response) (*GetDeploymentResponse, err
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDeploymentHealthResponse parses an HTTP response from a GetDeploymentHealthWithResponse call
+func ParseGetDeploymentHealthResponse(rsp *http.Response) (*GetDeploymentHealthResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeploymentHealthResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			DeploymentId openapi_types.UUID `json:"deploymentId"`
+
+			// Error Error message if health check failed
+			Error  *string `json:"error,omitempty"`
+			Health *struct {
+				Events *[]struct {
+					Count          *float32 `json:"count,omitempty"`
+					FirstTimestamp *string  `json:"firstTimestamp,omitempty"`
+					InvolvedObject *struct {
+						Kind *string `json:"kind,omitempty"`
+						Name *string `json:"name,omitempty"`
+					} `json:"involvedObject,omitempty"`
+					LastTimestamp *string `json:"lastTimestamp,omitempty"`
+					Message       *string `json:"message,omitempty"`
+					Reason        *string `json:"reason,omitempty"`
+					Source        *string `json:"source,omitempty"`
+					Type          *string `json:"type,omitempty"`
+				} `json:"events,omitempty"`
+				Helm *map[string]interface{} `json:"helm,omitempty"`
+				Pods *[]struct {
+					Age        *string `json:"age,omitempty"`
+					Conditions *[]struct {
+						LastTransitionTime *string `json:"lastTransitionTime,omitempty"`
+						Message            *string `json:"message,omitempty"`
+						Reason             *string `json:"reason,omitempty"`
+						Status             *string `json:"status,omitempty"`
+						Type               *string `json:"type,omitempty"`
+					} `json:"conditions,omitempty"`
+					ContainerStatuses *[]struct {
+						LastState    *map[string]interface{} `json:"lastState,omitempty"`
+						Name         *string                 `json:"name,omitempty"`
+						Ready        *bool                   `json:"ready,omitempty"`
+						RestartCount *float32                `json:"restartCount,omitempty"`
+						State        *map[string]interface{} `json:"state,omitempty"`
+					} `json:"containerStatuses,omitempty"`
+					Ip       *string  `json:"ip,omitempty"`
+					Name     *string  `json:"name,omitempty"`
+					Node     *string  `json:"node,omitempty"`
+					Phase    *string  `json:"phase,omitempty"`
+					Ready    *bool    `json:"ready,omitempty"`
+					Restarts *float32 `json:"restarts,omitempty"`
+				} `json:"pods,omitempty"`
+				Resources *struct {
+					Deployments *[]struct {
+						Available  *float32 `json:"available,omitempty"`
+						Conditions *[]struct {
+							Message *string `json:"message,omitempty"`
+							Reason  *string `json:"reason,omitempty"`
+							Status  *string `json:"status,omitempty"`
+							Type    *string `json:"type,omitempty"`
+						} `json:"conditions,omitempty"`
+						Desired *float32 `json:"desired,omitempty"`
+						Name    *string  `json:"name,omitempty"`
+						Ready   *float32 `json:"ready,omitempty"`
+						Updated *float32 `json:"updated,omitempty"`
+					} `json:"deployments,omitempty"`
+					Ingresses *[]struct {
+						Hosts *[]string `json:"hosts,omitempty"`
+						Name  *string   `json:"name,omitempty"`
+						Ready *bool     `json:"ready,omitempty"`
+					} `json:"ingresses,omitempty"`
+					Services *[]struct {
+						ClusterIP *string `json:"clusterIP,omitempty"`
+						Name      *string `json:"name,omitempty"`
+						Ports     *[]struct {
+							Port     *float32 `json:"port,omitempty"`
+							Protocol *string  `json:"protocol,omitempty"`
+
+							// TargetPort Port number or name that containers expose (can be numeric string like '8080' or named port like 'http')
+							TargetPort *string `json:"targetPort,omitempty"`
+						} `json:"ports,omitempty"`
+						Type *string `json:"type,omitempty"`
+					} `json:"services,omitempty"`
+				} `json:"resources,omitempty"`
+			} `json:"health,omitempty"`
+
+			// HealthScore Health score from 0-100
+			HealthScore     float32                      `json:"healthScore"`
+			LastHealthCheck *time.Time                   `json:"lastHealthCheck,omitempty"`
+			Status          GetDeploymentHealth200Status `json:"status"`
+
+			// Summary Human-readable health summary
+			Summary         string `json:"summary"`
+			Troubleshooting *struct {
+				HealthScore   *float32  `json:"healthScore,omitempty"`
+				QuickCommands *[]string `json:"quickCommands,omitempty"`
+				Suggestions   *[]string `json:"suggestions,omitempty"`
+				Summary       *string   `json:"summary,omitempty"`
+			} `json:"troubleshooting,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	}
 
