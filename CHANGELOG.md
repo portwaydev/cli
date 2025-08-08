@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.0](https://github.com/portwaydev/cli/compare/v1.0.1...v1.1.0) (2025-08-08)
+
+
+### Features
+
+* add compose file resolvers support ([55a0323](https://github.com/portwaydev/cli/commit/55a0323dd83315afd79f9f5bb99eeef0ed2bf514))
+* add linting & deployment health ([678e6b3](https://github.com/portwaydev/cli/commit/678e6b3d6fa735d14a16f3ec79633c6c6d1dbd8a))
+* show linting issues when deploying ([124e8de](https://github.com/portwaydev/cli/commit/124e8de21a04e11ddf3e5e24af8d7fe0db0f3672))
+
 ## [1.0.1](https://github.com/portwaydev/cli/compare/v1.0.0...v1.0.1) (2025-08-07)
 
 
