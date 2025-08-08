@@ -3,6 +3,7 @@ package deploy
 import (
 	initcmd "cli/cmd/init"
 	"cli/pkg/compose"
+	"cli/pkg/compose/lint"
 	"cli/pkg/config"
 	"cli/pkg/util"
 	"context"
@@ -10,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"time"
 
 	"cli/pkg/api"
@@ -252,6 +254,18 @@ func NewDeployCmd() *cobra.Command {
 				return err
 			}
 
+			orgSlug, err := cfg.GetOrgSlug(client)
+			if err != nil {
+				return err
+			}
+
+			_, err = client.CreateOrUpdateApp(cmd.Context(), orgSlug, cfg.App.Slug, api.CreateOrUpdateAppJSONRequestBody{
+				Name: &cfg.App.Slug,
+			})
+			if err != nil {
+				return err
+			}
+
 			env, ok := cfg.Environments[envName]
 			if !ok {
 				// If no environment specified, use the first one
@@ -277,6 +291,21 @@ func NewDeployCmd() *cobra.Command {
 			if err != nil {
 				pterm.Printf("%s Failed to load compose config\n", pterm.Red("❌"))
 				return fmt.Errorf("failed to get services with build: %w", err)
+			}
+
+			issues := lint.Lint(composeConfig)
+			if len(issues) > 0 {
+				lint.DisplayValidationResults(issues)
+			}
+
+			for _, issue := range issues {
+				if issue.ValidationCheck.Severity == lint.SeverityError {
+					os.Exit(1)
+				}
+			}
+
+			if len(issues) > 0 {
+				lint.ConfigLintMessages()
 			}
 
 			printServicesTable(composeConfig)
@@ -357,6 +386,7 @@ func NewDeployCmd() *cobra.Command {
 			if composeFileResponse.StatusCode() != 200 {
 				fmt.Println()
 				color.Red("Failed to create compose file.")
+				fmt.Printf("Status: %s\n", color.YellowString(strconv.Itoa(composeFileResponse.StatusCode())))
 				fmt.Println()
 				return fmt.Errorf("failed to create compose file")
 			}

@@ -1,0 +1,6 @@
+services:
+  nocodb:
+    image: nocodb/nocodb:0.264.4
+  root_db:
+    expose:
+      - 5432

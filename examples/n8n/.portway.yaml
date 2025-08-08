@@ -1,0 +1,7 @@
+app:
+  id: ""
+  slug: n8n
+environments:
+  production:
+    compose_files:
+    - docker-compose.yaml
