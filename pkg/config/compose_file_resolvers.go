@@ -16,6 +16,7 @@ import (
 var composeFileTypes = map[string]ComposeFileResolver{
 	"github": GetGithubComposeFile,
 	"file":   GetFileComposeFile,
+	"url":   GetHTTPComposeFile,
 }
 
 // ComposeFileResolver is a function that resolves a compose file reference to a local file path
@@ -95,6 +96,25 @@ func GetGithubComposeFile(ref string) (string, error) {
 	_, err = io.Copy(tempFile, response.Body)
 	if err != nil {
 		os.Remove(tempFile.Name())
+		return "", fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return tempFile.Name(), nil
+}
+
+func GetHTTPComposeFile(ref string) (string, error) {
+	response, err := http.Get(ref)
+	if err != nil {
+		return "", fmt.Errorf("failed to download file: %w", err)
+	}
+
+	tempFile, err := os.CreateTemp("", "http-compose-*.yaml")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp file: %w", err)
+	}
+
+	_, err = io.Copy(tempFile, response.Body)
+	if err != nil {
 		return "", fmt.Errorf("failed to write file: %w", err)
 	}
 

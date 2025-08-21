@@ -18,9 +18,11 @@ type App struct {
 	Slug string `yaml:"slug"`
 }
 
+type ComposeFileResolverType string
+
 // Environment represents configuration for a specific environment
 type Environment struct {
-	ComposeFiles []string `yaml:"compose_files"`
+	ComposeFiles []string `yaml:"compose-files"`
 }
 
 func (e *Environment) GetComposeFiles() ([]string, error) {

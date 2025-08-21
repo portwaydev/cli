@@ -34,6 +34,8 @@ type ValidationIssue struct {
 
 var checks = []ValidationCheck{
 	ServiceKeyRFC1123,
+	OnlyBinds,
+	VersionSpecify,
 }
 
 func Lint(project *types.Project) []ValidationIssue {

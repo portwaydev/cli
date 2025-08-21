@@ -3,6 +3,5 @@ app:
   slug: nocodb
 environments:
   production:
-    compose_files:
-      - github:nocodb/nocodb/docker-compose/2_pg/docker-compose.yml@develop
-      - file:overrides.compose.yaml
+    compose-files:
+      - file:compose.yaml

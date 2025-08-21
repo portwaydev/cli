@@ -6,7 +6,9 @@ import (
 	"cli/cmd/doctor"
 	initcmd "cli/cmd/init"
 	"cli/cmd/settings"
+	"cli/cmd/update"
 	"cli/cmd/validate"
+	versioncmd "cli/cmd/version"
 	"fmt"
 	"os"
 
@@ -39,6 +41,8 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.AddCommand(auth.NewAuthCmd())
 	rootCmd.AddCommand(auth.NewLoginCmd())
 	rootCmd.AddCommand(settings.NewSettingsCmd())
+	rootCmd.AddCommand(update.NewUpdateCmd())
+	rootCmd.AddCommand(versioncmd.NewVersionCmd())
 	rootCmd.AddCommand(doctor.NewDoctorCmd())
 	rootCmd.AddCommand(validate.NewValidateCmd())
 	rootCmd.AddCommand(initcmd.NewInitCmd())

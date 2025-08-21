@@ -337,6 +337,13 @@ func NewDeployCmd() *cobra.Command {
 				pterm.Printf("%s Failed to get compose files\n", pterm.Red("❌"))
 				return fmt.Errorf("failed to get compose files: %w", err)
 			}
+
+			if len(composeFiles) == 0 {
+				fmt.Println()
+				fmt.Println(color.RedString("No compose files found."))
+				fmt.Println()
+				os.Exit(1)
+			}
 			
 			composeConfig, err := compose.LoadComposeConfig(composeFiles)
 			if err != nil {
@@ -532,7 +539,7 @@ func NewDeployCmd() *cobra.Command {
 					}
 
 					if deployment.JSON200.Status == "failed" {
-						message := "An error happened while trying to deploy your application. Please try again later."
+						message := "An error happened while trying to deploy your application."
 						ExitSpinner(spinner, color.RedString(message))
 						fmt.Println()
 						err = printHealth(client, *d.Id)
