@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -16,27 +17,32 @@ import (
 var composeFileTypes = map[string]ComposeFileResolver{
 	"github": GetGithubComposeFile,
 	"file":   GetFileComposeFile,
-	"url":   GetHTTPComposeFile,
+	"url":    GetHTTPComposeFile,
 }
 
 // ComposeFileResolver is a function that resolves a compose file reference to a local file path
-type ComposeFileResolver func(ref string) (string, error)
+type ComposeFileResolver func(configDir string, ref string) (string, error)
 
 // GetFileComposeFile resolves a local file reference by returning the path as-is
-func GetFileComposeFile(ref string) (string, error) {
-	if _, err := os.Stat(ref); os.IsNotExist(err) {
+func GetFileComposeFile(configDir string, ref string) (string, error) {
+	fp, err := filepath.Abs(filepath.Join(configDir, ref))
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	if _, err := os.Stat(fp); os.IsNotExist(err) {
 		fmt.Println()
 		fmt.Printf("%s compose file not found at %s\n", color.RedString("Error:"), color.YellowString(ref))
 		fmt.Println()
 		return "", fmt.Errorf("compose file not found: %s", ref)
 	}
 
-	return ref, nil
+	return fp, nil
 }
 
 // GetGithubComposeFile downloads a compose file from GitHub and returns the local temp file path
 // Expected format: owner/repo/path/to/file@version
-func GetGithubComposeFile(ref string) (string, error) {
+func GetGithubComposeFile(_ string, ref string) (string, error) {
 	// Parse reference into repo path and version
 	refParts := strings.Split(ref, "@")
 	if len(refParts) != 2 {
@@ -102,7 +108,7 @@ func GetGithubComposeFile(ref string) (string, error) {
 	return tempFile.Name(), nil
 }
 
-func GetHTTPComposeFile(ref string) (string, error) {
+func GetHTTPComposeFile(_ string, ref string) (string, error) {
 	response, err := http.Get(ref)
 	if err != nil {
 		return "", fmt.Errorf("failed to download file: %w", err)

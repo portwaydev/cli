@@ -1,17 +1,22 @@
 package deploy
 
 import (
+	"bytes"
 	initcmd "cli/cmd/init"
 	"cli/pkg/compose"
 	"cli/pkg/compose/lint"
 	"cli/pkg/config"
+	"cli/pkg/docker"
 	"cli/pkg/util"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"cli/pkg/api"
@@ -22,116 +27,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
-
-// func createComposeFile(client *api.ClientWithResponses, composeFileName string, organizationId uuid.UUID) (uuid.UUID, error) {
-// 	composeFileRequestBody := api.UpsertComposeFileV1JSONRequestBody{
-// 		Name: &composeFile,
-// 	}
-// 	composeFileResponse, err := client.UpsertComposeFileV1WithResponse(
-// 		context.Background(),
-// 		organizationId,
-// 		composeFile,
-// 		composeFileRequestBody,
-// 	)
-
-// 	if err != nil {
-// 		pterm.Printf("%s Failed to upsert compose file\n", pterm.Red("❌"))
-// 		return uuid.Nil, fmt.Errorf("failed to upsert compose file: %w", err)
-// 	}
-
-// 	if composeFileResponse.JSON200 != nil {
-// 		return composeFileResponse.JSON200.Id, nil
-// 	}
-// 	if composeFileResponse.JSON201 != nil {
-// 		return composeFileResponse.JSON201.Id, nil
-// 	}
-
-// 	pterm.Printf("%s Failed to get compose file ID\n", pterm.Red("❌"))
-// 	return uuid.Nil, fmt.Errorf("failed to get compose file ID")
-// }
-
-// func createComposeFileVersion(client *api.ClientWithResponses, composeFileId uuid.UUID, composeFile string) (uuid.UUID, error) {
-// 	yamlBytes, err := os.ReadFile(composeFile)
-// 	if err != nil {
-// 		pterm.Printf("%s Failed to read compose file\n", pterm.Red("❌"))
-// 		return uuid.Nil, fmt.Errorf("failed to read compose file: %w", err)
-// 	}
-
-// 	version, err := determineVersion(composeFile)
-// 	if err != nil {
-// 		return uuid.Nil, fmt.Errorf("failed to determine version: %w", err)
-// 	}
-// 	source := api.CreateComposeFileVersionV1JSONBodySourceCli
-// 	composeFileVersionRequestBody := api.CreateComposeFileVersionV1JSONRequestBody{
-// 		RawCompose: string(yamlBytes),
-// 		Version:    version,
-// 		Source:     &source,
-// 	}
-
-// 	composeFileVersionResponse, err := client.CreateComposeFileVersionV1WithResponse(
-// 		context.Background(),
-// 		composeFileId,
-// 		composeFileVersionRequestBody,
-// 	)
-
-// 	if err != nil {
-// 		pterm.Printf("%s Failed to create compose file version\n", pterm.Red("❌"))
-// 		return uuid.Nil, fmt.Errorf("failed to create compose file version: %w", err)
-// 	}
-
-// 	if composeFileVersionResponse.JSON200 != nil {
-// 		return composeFileVersionResponse.JSON200.Id, nil
-// 	}
-
-// 	pterm.Printf("%s Failed to get compose file version ID\n", pterm.Red("❌"))
-// 	return uuid.Nil, fmt.Errorf("failed to get compose file version ID")
-// }
-
-// func getTargetId(
-// 	client *api.ClientWithResponses,
-// 	organizationId uuid.UUID,
-// 	appSlug string,
-// 	appRequestBody api.UpsertAppV1JSONRequestBody,
-// ) (uuid.UUID, error) {
-// 	appResponse, err := client.UpsertAppV1WithResponse(
-// 		context.Background(),
-// 		organizationId,
-// 		appSlug,
-// 		appRequestBody,
-// 	)
-
-// 	if err != nil {
-// 		pterm.Printf("%s Failed to upsert app\n", pterm.Red("❌"))
-// 		return uuid.Nil, fmt.Errorf("failed to upsert app: %w", err)
-// 	}
-
-// 	if appResponse.JSON200 != nil {
-// 		for _, environment := range *appResponse.JSON200.Environments {
-// 			if environment.Targets != nil && environment.Slug == "production" {
-// 				for _, target := range *environment.Targets {
-// 					if target.Slug == "production" {
-// 						return target.Id, nil
-// 					}
-// 				}
-// 			}
-// 		}
-// 	}
-
-// 	if appResponse.JSON201 != nil {
-// 		for _, environment := range *appResponse.JSON201.Environments {
-// 			if environment.Targets != nil && environment.Slug == "production" {
-// 				for _, target := range *environment.Targets {
-// 					if target.Slug == "production" {
-// 						return target.Id, nil
-// 					}
-// 				}
-// 			}
-// 		}
-// 	}
-
-// 	return uuid.Nil, fmt.Errorf("production target not found")
-// }
 
 func printHealth(client *api.ClientWithResponses, deploymentId uuid.UUID) error {
 	health, err := client.GetDeploymentHealthWithResponse(
@@ -280,7 +177,8 @@ func NewDeployCmd() *cobra.Command {
 		Long:         "Deploy a docker compose",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if hasUncommittedChanges() {
+			configDir := filepath.Dir(configPath)
+			if hasUncommittedChanges(configDir) {
 				if !util.IsCI() {
 					if err := confirmUncommittedChanges(); err != nil {
 						return err
@@ -310,12 +208,14 @@ func NewDeployCmd() *cobra.Command {
 				return err
 			}
 
-			_, err = client.CreateOrUpdateApp(cmd.Context(), orgSlug, cfg.App.Slug, api.CreateOrUpdateAppJSONRequestBody{
+			app, err := client.CreateOrUpdateAppWithResponse(cmd.Context(), orgSlug, cfg.App.Slug, api.CreateOrUpdateAppJSONRequestBody{
 				Name: &cfg.App.Slug,
 			})
 			if err != nil {
 				return err
 			}
+
+			appID := app.JSON200.Id.String()
 
 			env, ok := cfg.Environments[envName]
 			if !ok {
@@ -332,7 +232,7 @@ func NewDeployCmd() *cobra.Command {
 				}
 			}
 
-			composeFiles, err := env.GetComposeFiles()
+			composeFiles, err := env.GetComposeFiles(configDir)
 			if err != nil {
 				pterm.Printf("%s Failed to get compose files\n", pterm.Red("❌"))
 				return fmt.Errorf("failed to get compose files: %w", err)
@@ -344,7 +244,7 @@ func NewDeployCmd() *cobra.Command {
 				fmt.Println()
 				os.Exit(1)
 			}
-			
+
 			composeConfig, err := compose.LoadComposeConfig(composeFiles)
 			if err != nil {
 				pterm.Printf("%s Failed to load compose config\n", pterm.Red("❌"))
@@ -368,49 +268,131 @@ func NewDeployCmd() *cobra.Command {
 
 			printServicesTable(composeConfig)
 
-			// // Building images
-			// servicesWithBuild := composeConfig.GetServicesWithBuild()
-			// if len(servicesWithBuild) > 0 {
-			// 	cmd := fmt.Sprintf("docker compose -f %s build", composeFile)
-			// 	pterm.Printf("🔨 Running: %s\n", pterm.Cyan(cmd))
-			// 	if err := composeConfig.Build(); err != nil {
-			// 		pterm.Printf("%s Build failed\n", pterm.Red("❌"))
-			// 		return fmt.Errorf("failed to build images: %w", err)
-			// 	}
-			// 	pterm.Printf("✅ All images built successfully\n")
-			// 	fmt.Println()
-			// }
+			// Building images
+			hasImagesToBuild := len(composeConfig.ServicesWithBuild()) > 0
+			if hasImagesToBuild {
+				fmt.Println("🔨 Building all images defined in the compose file...")
+				cmdArgs := []string{"compose"}
+				for _, file := range composeFiles {
+					cmdArgs = append(cmdArgs, "-f", file)
+				}
+				cmdArgs = append(cmdArgs, "build")
 
-			// // Pulling external images
-			// externalImages := composeConfig.GetExternalImages()
-			// if len(externalImages) > 0 {
-			// 	for _, image := range externalImages {
-			// 		pterm.Printf("📥 Pulling: %s\n", pterm.Cyan(image))
-			// 		if err := docker.PullImage(image); err != nil {
-			// 			pterm.Printf("%s Failed to pull image: %s\n", pterm.Red("❌"), image)
-			// 			return fmt.Errorf("failed to pull image %s: %w", image, err)
-			// 		}
-			// 	}
-			// 	fmt.Println()
-			// }
+				var stdoutBuf, stderrBuf bytes.Buffer
+				
+				cmd := exec.Command("docker", cmdArgs...)
+				cmd.Stdout = &stdoutBuf
+				cmd.Stderr = &stderrBuf
+				cmd.Env = append(os.Environ(), "DOCKER_DEFAULT_PLATFORM=linux/amd64")
 
-			// // Tagging images
-			// images := composeConfig.GetImages()
-			// if len(images) > 0 {
-			// 	pterm.Println("ℹ️  Tagging Images")
+				buildSpinner := NewSpinnerWithText("Building")
+				go func() {
+					_, _ = buildSpinner.Run()
+				}()
 
-			// 	for _, image := range images {
-			// 		imageID, err := docker.GetImageID(image)
-			// 		if err != nil {
-			// 			pterm.Printf("%s Failed to get image ID for %s\n", pterm.Red("❌"), image)
-			// 			return fmt.Errorf("failed to get image ID: %w", err)
-			// 		}
-			// 		imageName := strings.Split(image, ":")[0]
-			// 		tag := fmt.Sprintf("%s/%s:%s", registry, imageName, imageID)
-			// 		pterm.Printf("🏷️  Tagged: %s → %s\n", pterm.Cyan(image), pterm.Green(tag))
-			// 	}
-			// 	fmt.Println()
-			// }
+				err := cmd.Run()
+				if err != nil {
+					ExitSpinner(buildSpinner, color.RedString("Failed to build images."))
+					// Print captured logs for debugging
+					if stdoutBuf.Len() > 0 {
+						fmt.Println(color.YellowString("--- docker build stdout ---"))
+						fmt.Print(stdoutBuf.String())
+					}
+					if stderrBuf.Len() > 0 {
+						fmt.Println(color.YellowString("--- docker build stderr ---"))
+						fmt.Print(stderrBuf.String())
+					}
+					fmt.Println("docker", strings.Join(cmdArgs, " "))
+					fmt.Printf("%s Failed to build images: %v\n", pterm.Red("❌"), err)
+					return fmt.Errorf("failed to build images: %w", err)
+				}
+
+				ExitSpinner(buildSpinner, "Docker images built.")
+
+				fmt.Println()
+				pterm.Println("ℹ️  Built Image IDs")
+				serviceImages := map[string]string{}
+				for serviceName, service := range composeConfig.Services {
+					if service.Build == nil {
+						continue
+					}
+
+					candidates := []string{}
+					if service.Image != "" {
+						candidates = append(candidates, service.Image, service.Image+":latest")
+					} else {
+						baseUnderscore := fmt.Sprintf("%s_%s", composeConfig.Name, serviceName)
+						baseHyphen := fmt.Sprintf("%s-%s", composeConfig.Name, serviceName)
+						candidates = append(candidates,
+							baseUnderscore,
+							baseUnderscore+":latest",
+							baseHyphen,
+							baseHyphen+":latest",
+						)
+					}
+
+					var foundRef string
+					var imageID string
+					for _, ref := range candidates {
+						id, idErr := docker.GetImageID(ref)
+						if idErr == nil {
+							foundRef = ref
+							imageID = id
+							break
+						}
+					}
+
+					if foundRef == "" {
+						pterm.Printf("%s Could not determine image ID for %s\n", pterm.Yellow("⚠️"), pterm.Bold.Sprint(serviceName))
+						continue
+					}
+
+					pterm.Printf("🏷️  %s → %s (%s)\n", pterm.Bold.Sprint(serviceName), pterm.Cyan(foundRef), pterm.Green(imageID))
+
+					newRef := fmt.Sprintf("registry.portway.dev/%s/%s:%s-%s", appID, serviceName, envName, imageID)
+
+					if err := docker.TagImage(foundRef, newRef); err != nil {
+						pterm.Printf("%s Failed to retag: %s → %s (%s)\n", pterm.Red("❌"), pterm.Cyan(foundRef), pterm.Green(newRef), err.Error())
+						os.Exit(1)
+					}
+					pterm.Printf("  Retagged to %s\n", pterm.Cyan(newRef))
+					serviceImages[serviceName] = newRef
+
+					serviceCopy := service
+					serviceCopy.Image = newRef
+					composeConfig.Services[serviceName] = serviceCopy
+				}
+				fmt.Println()
+
+				// Push images to the distributed registry, passing in the API key
+				pterm.Println("🚀 Pushing images to registry...")
+				apiKey := viper.GetString("token")
+				if strings.TrimSpace(apiKey) == "" {
+					pterm.Printf("%s Missing API token. Please set it with 'portway auth login' or configure 'token' in config.\n", pterm.Red("❌"))
+					os.Exit(1)
+				}
+				loginCmd := exec.Command("docker", "login", "registry.portway.dev", "-u", "portway", "--password-stdin")
+				loginCmd.Stdin = strings.NewReader(apiKey)
+				loginCmd.Stdout = os.Stdout
+				loginCmd.Stderr = os.Stderr
+				if err := loginCmd.Run(); err != nil {
+					pterm.Printf("%s Failed to login to registry. Please verify your API token.\n", pterm.Red("❌"))
+					os.Exit(1)
+				}
+
+				fmt.Println()
+
+				for _, imageRef := range serviceImages {
+					pterm.Printf("📤 Pushing %s...\n", pterm.Cyan(imageRef))
+					if err := docker.PushImage(imageRef); err != nil {
+						pterm.Printf("%s Failed to push image %s: %s\n", pterm.Red("❌"), pterm.Cyan(imageRef), err.Error())
+						os.Exit(1)
+					}
+					pterm.Printf("%s Successfully pushed %s\n", pterm.Green("✅"), pterm.Cyan(imageRef))
+				}
+
+				fmt.Println()
+			}
 
 			if version == "" {
 				version, _ = determineVersion()

@@ -25,7 +25,7 @@ type Environment struct {
 	ComposeFiles []string `yaml:"compose-files"`
 }
 
-func (e *Environment) GetComposeFiles() ([]string, error) {
+func (e *Environment) GetComposeFiles(configDir string) ([]string, error) {
 	files := []string{}
 	
 	for _, file := range e.ComposeFiles {
@@ -44,13 +44,14 @@ func (e *Environment) GetComposeFiles() ([]string, error) {
 		}
 
 		file = strings.TrimPrefix(file, resolverType+":")
-		resolvedFile, err := resolver(file)
+		resolvedFile, err := resolver(configDir, file)
 		if err != nil {
 			return nil, err
 		}
 
 		files = append(files, resolvedFile)
 	}
+
 	return files, nil
 }
 

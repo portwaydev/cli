@@ -26,7 +26,6 @@ func TagImage(sourceImage string, targetImage string) error {
 
 // PushImage pushes a Docker image to a registry
 func PushImage(image string) error {
-	fmt.Printf("Pushing image %s\n", image)
 	cmd := exec.Command("docker", "push", image)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to push image %s: %w", image, err)

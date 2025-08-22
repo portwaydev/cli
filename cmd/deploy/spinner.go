@@ -28,6 +28,7 @@ type spinnerModel struct {
 	displayedLogs map[string]bool // Track which logs have been displayed
 
 	logs []logMsg
+	statusText string
 }
 
 func initialSpinnerModel() spinnerModel {
@@ -39,7 +40,16 @@ func initialSpinnerModel() spinnerModel {
 		start:         time.Now(),
 		lines:         0,
 		displayedLogs: make(map[string]bool),
+		statusText:    "Deploying",
 	}
+}
+
+func initialSpinnerModelWithText(text string) spinnerModel {
+	m := initialSpinnerModel()
+	if text != "" {
+		m.statusText = text
+	}
+	return m
 }
 
 func (m spinnerModel) Init() tea.Cmd {
@@ -110,13 +120,17 @@ func (m spinnerModel) View() string {
 	
 	// Add the spinner status at the bottom
 	elapsed := time.Since(m.start).Round(time.Second)
-	output += fmt.Sprintf("%s Deploying... (%s)", m.spinner.View(), elapsed)
+	output += fmt.Sprintf("%s %s... (%s)", m.spinner.View(), m.statusText, elapsed)
 	
 	return output
 }
 
 func NewSpinner() *tea.Program {
 	return tea.NewProgram(initialSpinnerModel())
+}
+
+func NewSpinnerWithText(text string) *tea.Program {
+	return tea.NewProgram(initialSpinnerModelWithText(text))
 }
 
 // ExitSpinner stops the spinner and displays the given message

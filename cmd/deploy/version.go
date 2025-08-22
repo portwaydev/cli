@@ -9,8 +9,9 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-func hasUncommittedChanges() bool {
+func hasUncommittedChanges(configDir string) bool {
 	statusCmd := exec.Command("git", "status", "--porcelain")
+	statusCmd.Dir = configDir
 	statusOutput, err := statusCmd.Output()
 	return err == nil && len(statusOutput) > 0
 }
