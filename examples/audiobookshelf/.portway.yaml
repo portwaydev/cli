@@ -1,0 +1,7 @@
+app:
+  id: ""
+  slug: audiobookshelf
+environments:
+  production:
+    compose-files:
+      - file:compose.yaml

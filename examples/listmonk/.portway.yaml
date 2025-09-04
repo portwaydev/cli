@@ -3,6 +3,6 @@ app:
   slug: listmonk
 environments:
   production:
-    compose-iles:
+    compose-files:
       - github:knadh/listmonk/docker-compose.yml@master
       - file:override.compose.yaml
