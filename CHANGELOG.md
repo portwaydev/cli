@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/portwaydev/cli/compare/v1.1.0...v1.2.0) (2025-09-04)
+
+
+### Features
+
+* add image building ([ce79a1a](https://github.com/portwaydev/cli/commit/ce79a1af084e3560d16f3684aac2a159a6c5cd12))
+
 ## [1.1.0](https://github.com/portwaydev/cli/compare/v1.0.1...v1.1.0) (2025-08-21)
 
 
