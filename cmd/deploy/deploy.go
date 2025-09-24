@@ -58,11 +58,11 @@ func printHealth(client *api.ClientWithResponses, deploymentId uuid.UUID) error 
 		})
 	}
 	pterm.DefaultTable.WithHasHeader().WithHeaderRowSeparator("-").WithData(podTableData).Render()
-	
+
 	resourcesTableData := pterm.TableData{{"Service", "Ready", "Desired"}}
 	for _, service := range *info.Health.Resources.Deployments {
 		resourcesTableData = append(resourcesTableData, []string{
-			*service.Name, 
+			*service.Name,
 			fmt.Sprintf("%d", int(*service.Ready)),
 			fmt.Sprintf("%d", int(*service.Desired)),
 		})
@@ -168,15 +168,30 @@ func printServicesTable(composeConfig *types.Project) {
 
 func NewDeployCmd() *cobra.Command {
 	var configPath string
+	var project string
 	var envName string
 	var version string
 	var force bool
+	var dryRun bool
 
 	cmd := &cobra.Command{
 		Use:          "deploy",
-		Short:        "Deploy a docker compose file",
-		Long:         "Deploy a docker compose",
-		SilenceUsage: true,
+		Short:        "Deploy a Docker Compose file to Portway",
+		Long: `Deploy a Docker Compose file to Portway.
+
+This command will:
+  - Validate your configuration file and environment.
+  - Build and push images as needed.
+  - Deploy your application to the specified environment.
+  - Stream deployment logs and show health checks.
+
+Examples:
+  portway deploy
+  portway deploy --env production
+  portway deploy --config .portway.yaml --version v1.2.3
+
+For more information, see: https://docs.portway.dev/deploy/cli
+`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			configDir := filepath.Dir(configPath)
 			if hasUncommittedChanges(configDir) {
@@ -282,7 +297,7 @@ func NewDeployCmd() *cobra.Command {
 				cmdArgs = append(cmdArgs, "build")
 
 				var stdoutBuf, stderrBuf bytes.Buffer
-				
+
 				cmd := exec.Command("docker", cmdArgs...)
 				cmd.Stdout = &stdoutBuf
 				cmd.Stderr = &stderrBuf
@@ -387,6 +402,10 @@ func NewDeployCmd() *cobra.Command {
 
 				for _, imageRef := range serviceImages {
 					pterm.Printf("📤 Pushing %s...\n", pterm.Cyan(imageRef))
+					if dryRun {
+						pterm.Printf("%s Skipping push in dry run mode.\n", pterm.Yellow("⚠️"))
+						continue
+					}
 					if err := docker.PushImage(imageRef); err != nil {
 						pterm.Printf("%s Failed to push image %s: %s\n", pterm.Red("❌"), pterm.Cyan(imageRef), err.Error())
 						os.Exit(1)
@@ -413,6 +432,14 @@ func NewDeployCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("failed to get version input: %w", err)
 				}
+			}
+
+			if dryRun {
+				fmt.Println()
+				fmt.Println(color.YellowString("Dry run mode. Exiting."))
+				fmt.Println()
+				os.Exit(0)
+				return nil
 			}
 
 			composeFileResponse, err := createEnvironmentComposeFile(
@@ -465,10 +492,10 @@ func NewDeployCmd() *cobra.Command {
 			}
 
 			spinner := NewSpinner()
-			
+
 			// Channel to signal spinner completion/interruption
 			done := make(chan error, 1)
-			
+
 			go func() {
 				// Run spinner in background and capture if it was interrupted
 				model, err := spinner.Run()
@@ -476,13 +503,13 @@ func NewDeployCmd() *cobra.Command {
 					done <- err
 					return
 				}
-				
+
 				// Check if the spinner was quitting (possibly due to Ctrl+C)
 				if spinnerModel, ok := model.(spinnerModel); ok && spinnerModel.quitting {
 					done <- fmt.Errorf("operation interrupted by user")
 					return
 				}
-				
+
 				done <- nil
 			}()
 
@@ -560,6 +587,8 @@ func NewDeployCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&envName, "env", "e", "", "Environment to deploy to")
 	cmd.Flags().StringVarP(&version, "version", "v", "", "Version to deploy")
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Force deploy")
+	cmd.Flags().BoolVarP(&dryRun, "dry-run", "d", false, "Dry run")
+	cmd.Flags().StringVarP(&project, "project", "p", "", "Project to deploy")
 
 	return cmd
 }

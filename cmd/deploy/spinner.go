@@ -20,14 +20,14 @@ type logMsg struct {
 }
 
 type spinnerModel struct {
-	spinner      spinner.Model
-	quitting     bool
-	err          error
-	start        time.Time
-	lines        int
+	spinner       spinner.Model
+	quitting      bool
+	err           error
+	start         time.Time
+	lines         int
 	displayedLogs map[string]bool // Track which logs have been displayed
 
-	logs []logMsg
+	logs       []logMsg
 	statusText string
 }
 
@@ -77,7 +77,7 @@ func (m spinnerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case logMsg:
 		// Create a unique key for the log entry
 		logKey := fmt.Sprintf("%s_%s_%s", msg.timestamp.Format(time.RFC3339Nano), msg.stream, msg.log)
-		
+
 		// Only add if we haven't seen this log before
 		if !m.displayedLogs[logKey] {
 			m.logs = append(m.logs, msg)
@@ -117,11 +117,11 @@ func (m spinnerModel) View() string {
 			output += color.RedString(log.log) + "\n"
 		}
 	}
-	
+
 	// Add the spinner status at the bottom
 	elapsed := time.Since(m.start).Round(time.Second)
 	output += fmt.Sprintf("%s %s... (%s)", m.spinner.View(), m.statusText, elapsed)
-	
+
 	return output
 }
 
@@ -140,8 +140,7 @@ func ExitSpinner(p *tea.Program, message string) {
 	// Give the spinner a moment to clean up
 	time.Sleep(50 * time.Millisecond)
 	// Clear any remaining spinner artifacts and print the message
-	fmt.Print("\r")                    // Move cursor to beginning of line
-	fmt.Print("\033[2K")               // Clear the entire line
-	fmt.Println(message)               // Print the final message
+	fmt.Print("\r")      // Move cursor to beginning of line
+	fmt.Print("\033[2K") // Clear the entire line
+	fmt.Println(message) // Print the final message
 }
-

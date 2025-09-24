@@ -29,7 +29,7 @@ type Environment struct {
 
 func (e *Environment) GetComposeFiles(configDir string) ([]string, error) {
 	files := []string{}
-	
+
 	for _, file := range e.ComposeFiles {
 		resolverType := strings.Split(file, ":")[0]
 
@@ -58,7 +58,8 @@ func (e *Environment) GetComposeFiles(configDir string) ([]string, error) {
 }
 
 type ProjectConfig struct {
-	Environments map[string]*Environment `yaml:"environments"`
+	DefaultEnvironment string                  `yaml:"default-environment,omitempty"`
+	Environments       map[string]*Environment `yaml:"environments"`
 }
 
 func (p *ProjectConfig) GetEnvironment(name string) *Environment {
@@ -66,18 +67,17 @@ func (p *ProjectConfig) GetEnvironment(name string) *Environment {
 }
 
 type GlobalDefaultsConfig struct {
-	Region string `yaml:"region"`
-	Domains []string `yaml:"domains"`
+	Region string `yaml:"region,omitempty"`
 }
 
 // Config represents the full application configuration
 type Config struct {
-	path           string                   `yaml:"-"`
-	Version        string                   `yaml:"version"`
-	DefaultProject string                   `yaml:"default-project"`
+	path           string                    `yaml:"-"`
+	Version        string                    `yaml:"version"`
+	DefaultProject string                    `yaml:"default-project"`
 	Projects       map[string]*ProjectConfig `yaml:"projects"`
 
-	Defaults GlobalDefaultsConfig `yaml:"defaults"`
+	Defaults *GlobalDefaultsConfig `yaml:"defaults,omitempty"`
 }
 
 func (c *Config) GetOrgSlug(client *api.ClientWithResponses) (string, error) {
@@ -118,11 +118,10 @@ func (c *Config) GetProject() *ProjectConfig {
 	return nil
 }
 
-
 // WriteConfig writes the config back to disk at the specified path
 func (c *Config) WriteConfig() error {
 	c.Version = "1.0"
-	
+
 	data, err := yaml.Marshal(c)
 	if err != nil {
 		return err
@@ -167,5 +166,5 @@ func LoadConfig(path string) (*Config, error) {
 
 // NewConfig creates a new default config
 func NewConfig(path string) *Config {
-	return &Config{path: path}
+	return &Config{path: path, Version: "1.0", Projects: make(map[string]*ProjectConfig)}
 }

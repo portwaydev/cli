@@ -108,23 +108,27 @@ func NewInitCmd() *cobra.Command {
 
 			form.Run()
 
-			cfg.App.Slug = appSlug
-
-			environments := make(map[string]config.Environment)
-
+			environments := make(map[string]*config.Environment)
+			cfg.Version = "1.0"
+			cfg.DefaultProject = appSlug
+			cfg.Projects[appSlug] = &config.ProjectConfig{
+				DefaultEnvironment: "production",
+				Environments:       environments,
+			}
 			envName := "production"
-			environments[envName] = config.Environment{
+			environments[envName] = &config.Environment{
+				Region:       "yul",
 				ComposeFiles: []string{"file:" + composeFile},
 			}
-			cfg.Environments = environments
 
 			orgSlug, err := cfg.GetOrgSlug(client)
 			if err != nil {
 				return err
 			}
 
-			_, err = client.CreateOrUpdateApp(cmd.Context(), orgSlug, cfg.App.Slug, api.CreateOrUpdateAppJSONRequestBody{
-				Name: &cfg.App.Slug,
+			slug := cfg.GetProjectSlug()
+			_, err = client.CreateOrUpdateApp(cmd.Context(), orgSlug, slug, api.CreateOrUpdateAppJSONRequestBody{
+				Name: &slug,
 			})
 			if err != nil {
 				return err
@@ -135,7 +139,7 @@ func NewInitCmd() *cobra.Command {
 				return err
 			}
 
-			url := fmt.Sprintf("https://portway.dev/%s/%s", orgSlug, cfg.App.Slug)
+			url := fmt.Sprintf("https://portway.dev/%s/%s", orgSlug, slug)
 
 			fmt.Printf("View your app at: %s\n", color.BlueString(url))
 

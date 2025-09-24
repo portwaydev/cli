@@ -88,7 +88,7 @@ func GetGithubComposeFile(_ string, ref string) (string, error) {
 		os.Remove(tempFile.Name())
 		fmt.Println()
 		fmt.Printf(
-			"%s to download GitHub file.\n", 
+			"%s to download GitHub file.\n",
 			color.RedString("Failed"),
 		)
 		fmt.Printf("Reference: %s\n", color.CyanString(ref))

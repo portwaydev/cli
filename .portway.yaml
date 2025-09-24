@@ -1,7 +1,10 @@
-app:
-  id: ""
-  slug: cli
-environments:
-  production:
-    compose_files:
-      - file:compose.mealie.yaml
+version: "1.0"
+default-project: cli
+projects:
+  cli:
+    default-environment: production
+    environments:
+      production:
+        region: yul
+        compose-files:
+        - file:compose.mealie.yaml
