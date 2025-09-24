@@ -18,24 +18,21 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// App defines model for App.
-type App struct {
-	CreatedAt   time.Time          `json:"createdAt"`
-	Description *string            `json:"description,omitempty"`
-	Id          openapi_types.UUID `json:"id"`
-	Name        string             `json:"name"`
-	Slug        string             `json:"slug"`
-	UpdatedAt   time.Time          `json:"updatedAt"`
-}
+// Defines values for LintingIssueSeverity.
+const (
+	Error   LintingIssueSeverity = "error"
+	Info    LintingIssueSeverity = "info"
+	Warning LintingIssueSeverity = "warning"
+)
 
 // Deployment defines model for Deployment.
 type Deployment struct {
-	AppId     openapi_types.UUID `json:"appId"`
-	CreatedAt time.Time          `json:"createdAt"`
-	Id        openapi_types.UUID `json:"id"`
-	Status    string             `json:"status"`
-	UpdatedAt time.Time          `json:"updatedAt"`
-	VersionId openapi_types.UUID `json:"versionId"`
+	CreatedAt     time.Time          `json:"createdAt"`
+	EnvironmentId openapi_types.UUID `json:"environmentId"`
+	Id            openapi_types.UUID `json:"id"`
+	Status        string             `json:"status"`
+	UpdatedAt     time.Time          `json:"updatedAt"`
+	VersionId     openapi_types.UUID `json:"versionId"`
 }
 
 // Environment defines model for Environment.
@@ -58,6 +55,19 @@ type EnvironmentComposeFile struct {
 	Version       string                 `json:"version"`
 }
 
+// LintingIssue defines model for LintingIssue.
+type LintingIssue struct {
+	Code     string               `json:"code"`
+	Context  *string              `json:"context,omitempty"`
+	DocUrl   string               `json:"docUrl"`
+	Message  string               `json:"message"`
+	Scope    string               `json:"scope"`
+	Severity LintingIssueSeverity `json:"severity"`
+}
+
+// LintingIssueSeverity defines model for LintingIssue.Severity.
+type LintingIssueSeverity string
+
 // Organization defines model for Organization.
 type Organization struct {
 	CreatedAt        time.Time               `json:"createdAt"`
@@ -69,8 +79,8 @@ type Organization struct {
 	StripeCustomerId *string                 `json:"stripeCustomerId,omitempty"`
 }
 
-// Target defines model for Target.
-type Target struct {
+// Project defines model for Project.
+type Project struct {
 	CreatedAt   time.Time          `json:"createdAt"`
 	Description *string            `json:"description,omitempty"`
 	Id          openapi_types.UUID `json:"id"`
@@ -88,12 +98,15 @@ type ZodError struct {
 	} `json:"errors"`
 }
 
+// LintComposeFileObjectJSONBody defines parameters for LintComposeFileObject.
+type LintComposeFileObjectJSONBody map[string]interface{}
+
 // CreateOrUpdateAppJSONBody defines parameters for CreateOrUpdateApp.
 type CreateOrUpdateAppJSONBody struct {
-	// Description Application description
+	// Description Project description
 	Description *string `json:"description,omitempty"`
 
-	// Name Application name
+	// Name Project name
 	Name *string `json:"name,omitempty"`
 }
 
@@ -114,6 +127,9 @@ type CreateEnvironmentComposeFileJSONBody struct {
 	// Version Version of the compose file
 	Version string `json:"version"`
 }
+
+// LintComposeFileObjectJSONRequestBody defines body for LintComposeFileObject for application/json ContentType.
+type LintComposeFileObjectJSONRequestBody LintComposeFileObjectJSONBody
 
 // CreateOrUpdateAppJSONRequestBody defines body for CreateOrUpdateApp for application/json ContentType.
 type CreateOrUpdateAppJSONRequestBody CreateOrUpdateAppJSONBody
@@ -197,6 +213,11 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// LintComposeFileObjectWithBody request with any body
+	LintComposeFileObjectWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	LintComposeFileObject(ctx context.Context, body LintComposeFileObjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetDeployment request
 	GetDeployment(ctx context.Context, deploymentId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -206,26 +227,50 @@ type ClientInterface interface {
 	// DeployEnvironmentComposeFile request
 	DeployEnvironmentComposeFile(ctx context.Context, composeFileId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetApp request
-	GetApp(ctx context.Context, orgSlug string, appSlug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetProject request
+	GetProject(ctx context.Context, orgSlug string, projectSlug string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateOrUpdateAppWithBody request with any body
-	CreateOrUpdateAppWithBody(ctx context.Context, orgSlug string, appSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateOrUpdateAppWithBody(ctx context.Context, orgSlug string, projectSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	CreateOrUpdateApp(ctx context.Context, orgSlug string, appSlug string, body CreateOrUpdateAppJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateOrUpdateApp(ctx context.Context, orgSlug string, projectSlug string, body CreateOrUpdateAppJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateOrUpdateEnvironmentWithBody request with any body
-	CreateOrUpdateEnvironmentWithBody(ctx context.Context, orgSlug string, appSlug string, envSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateOrUpdateEnvironmentWithBody(ctx context.Context, orgSlug string, projectSlug string, envSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	CreateOrUpdateEnvironment(ctx context.Context, orgSlug string, appSlug string, envSlug string, body CreateOrUpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateOrUpdateEnvironment(ctx context.Context, orgSlug string, projectSlug string, envSlug string, body CreateOrUpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateEnvironmentComposeFileWithBody request with any body
-	CreateEnvironmentComposeFileWithBody(ctx context.Context, orgSlug string, appSlug string, envSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateEnvironmentComposeFileWithBody(ctx context.Context, orgSlug string, projectSlug string, envSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	CreateEnvironmentComposeFile(ctx context.Context, orgSlug string, appSlug string, envSlug string, body CreateEnvironmentComposeFileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateEnvironmentComposeFile(ctx context.Context, orgSlug string, projectSlug string, envSlug string, body CreateEnvironmentComposeFileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiV1Whoami request
 	GetApiV1Whoami(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) LintComposeFileObjectWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLintComposeFileObjectRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) LintComposeFileObject(ctx context.Context, body LintComposeFileObjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLintComposeFileObjectRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) GetDeployment(ctx context.Context, deploymentId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -264,8 +309,8 @@ func (c *Client) DeployEnvironmentComposeFile(ctx context.Context, composeFileId
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetApp(ctx context.Context, orgSlug string, appSlug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetAppRequest(c.Server, orgSlug, appSlug)
+func (c *Client) GetProject(ctx context.Context, orgSlug string, projectSlug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectRequest(c.Server, orgSlug, projectSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -276,8 +321,8 @@ func (c *Client) GetApp(ctx context.Context, orgSlug string, appSlug string, req
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateOrUpdateAppWithBody(ctx context.Context, orgSlug string, appSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateOrUpdateAppRequestWithBody(c.Server, orgSlug, appSlug, contentType, body)
+func (c *Client) CreateOrUpdateAppWithBody(ctx context.Context, orgSlug string, projectSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateOrUpdateAppRequestWithBody(c.Server, orgSlug, projectSlug, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -288,8 +333,8 @@ func (c *Client) CreateOrUpdateAppWithBody(ctx context.Context, orgSlug string, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateOrUpdateApp(ctx context.Context, orgSlug string, appSlug string, body CreateOrUpdateAppJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateOrUpdateAppRequest(c.Server, orgSlug, appSlug, body)
+func (c *Client) CreateOrUpdateApp(ctx context.Context, orgSlug string, projectSlug string, body CreateOrUpdateAppJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateOrUpdateAppRequest(c.Server, orgSlug, projectSlug, body)
 	if err != nil {
 		return nil, err
 	}
@@ -300,8 +345,8 @@ func (c *Client) CreateOrUpdateApp(ctx context.Context, orgSlug string, appSlug 
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateOrUpdateEnvironmentWithBody(ctx context.Context, orgSlug string, appSlug string, envSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateOrUpdateEnvironmentRequestWithBody(c.Server, orgSlug, appSlug, envSlug, contentType, body)
+func (c *Client) CreateOrUpdateEnvironmentWithBody(ctx context.Context, orgSlug string, projectSlug string, envSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateOrUpdateEnvironmentRequestWithBody(c.Server, orgSlug, projectSlug, envSlug, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -312,8 +357,8 @@ func (c *Client) CreateOrUpdateEnvironmentWithBody(ctx context.Context, orgSlug 
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateOrUpdateEnvironment(ctx context.Context, orgSlug string, appSlug string, envSlug string, body CreateOrUpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateOrUpdateEnvironmentRequest(c.Server, orgSlug, appSlug, envSlug, body)
+func (c *Client) CreateOrUpdateEnvironment(ctx context.Context, orgSlug string, projectSlug string, envSlug string, body CreateOrUpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateOrUpdateEnvironmentRequest(c.Server, orgSlug, projectSlug, envSlug, body)
 	if err != nil {
 		return nil, err
 	}
@@ -324,8 +369,8 @@ func (c *Client) CreateOrUpdateEnvironment(ctx context.Context, orgSlug string, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateEnvironmentComposeFileWithBody(ctx context.Context, orgSlug string, appSlug string, envSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateEnvironmentComposeFileRequestWithBody(c.Server, orgSlug, appSlug, envSlug, contentType, body)
+func (c *Client) CreateEnvironmentComposeFileWithBody(ctx context.Context, orgSlug string, projectSlug string, envSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateEnvironmentComposeFileRequestWithBody(c.Server, orgSlug, projectSlug, envSlug, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -336,8 +381,8 @@ func (c *Client) CreateEnvironmentComposeFileWithBody(ctx context.Context, orgSl
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateEnvironmentComposeFile(ctx context.Context, orgSlug string, appSlug string, envSlug string, body CreateEnvironmentComposeFileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateEnvironmentComposeFileRequest(c.Server, orgSlug, appSlug, envSlug, body)
+func (c *Client) CreateEnvironmentComposeFile(ctx context.Context, orgSlug string, projectSlug string, envSlug string, body CreateEnvironmentComposeFileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateEnvironmentComposeFileRequest(c.Server, orgSlug, projectSlug, envSlug, body)
 	if err != nil {
 		return nil, err
 	}
@@ -358,6 +403,46 @@ func (c *Client) GetApiV1Whoami(ctx context.Context, reqEditors ...RequestEditor
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewLintComposeFileObjectRequest calls the generic LintComposeFileObject builder with application/json body
+func NewLintComposeFileObjectRequest(server string, body LintComposeFileObjectJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewLintComposeFileObjectRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewLintComposeFileObjectRequestWithBody generates requests for LintComposeFileObject with any type of body
+func NewLintComposeFileObjectRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/compose-files/lint")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
 }
 
 // NewGetDeploymentRequest generates requests for GetDeployment
@@ -462,8 +547,8 @@ func NewDeployEnvironmentComposeFileRequest(server string, composeFileId openapi
 	return req, nil
 }
 
-// NewGetAppRequest generates requests for GetApp
-func NewGetAppRequest(server string, orgSlug string, appSlug string) (*http.Request, error) {
+// NewGetProjectRequest generates requests for GetProject
+func NewGetProjectRequest(server string, orgSlug string, projectSlug string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -475,7 +560,7 @@ func NewGetAppRequest(server string, orgSlug string, appSlug string) (*http.Requ
 
 	var pathParam1 string
 
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "appSlug", runtime.ParamLocationPath, appSlug)
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectSlug", runtime.ParamLocationPath, projectSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -485,7 +570,7 @@ func NewGetAppRequest(server string, orgSlug string, appSlug string) (*http.Requ
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/organizations/%s/apps/%s", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/projects/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -504,18 +589,18 @@ func NewGetAppRequest(server string, orgSlug string, appSlug string) (*http.Requ
 }
 
 // NewCreateOrUpdateAppRequest calls the generic CreateOrUpdateApp builder with application/json body
-func NewCreateOrUpdateAppRequest(server string, orgSlug string, appSlug string, body CreateOrUpdateAppJSONRequestBody) (*http.Request, error) {
+func NewCreateOrUpdateAppRequest(server string, orgSlug string, projectSlug string, body CreateOrUpdateAppJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCreateOrUpdateAppRequestWithBody(server, orgSlug, appSlug, "application/json", bodyReader)
+	return NewCreateOrUpdateAppRequestWithBody(server, orgSlug, projectSlug, "application/json", bodyReader)
 }
 
 // NewCreateOrUpdateAppRequestWithBody generates requests for CreateOrUpdateApp with any type of body
-func NewCreateOrUpdateAppRequestWithBody(server string, orgSlug string, appSlug string, contentType string, body io.Reader) (*http.Request, error) {
+func NewCreateOrUpdateAppRequestWithBody(server string, orgSlug string, projectSlug string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -527,7 +612,7 @@ func NewCreateOrUpdateAppRequestWithBody(server string, orgSlug string, appSlug 
 
 	var pathParam1 string
 
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "appSlug", runtime.ParamLocationPath, appSlug)
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectSlug", runtime.ParamLocationPath, projectSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -537,7 +622,7 @@ func NewCreateOrUpdateAppRequestWithBody(server string, orgSlug string, appSlug 
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/organizations/%s/apps/%s", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/projects/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -558,18 +643,18 @@ func NewCreateOrUpdateAppRequestWithBody(server string, orgSlug string, appSlug 
 }
 
 // NewCreateOrUpdateEnvironmentRequest calls the generic CreateOrUpdateEnvironment builder with application/json body
-func NewCreateOrUpdateEnvironmentRequest(server string, orgSlug string, appSlug string, envSlug string, body CreateOrUpdateEnvironmentJSONRequestBody) (*http.Request, error) {
+func NewCreateOrUpdateEnvironmentRequest(server string, orgSlug string, projectSlug string, envSlug string, body CreateOrUpdateEnvironmentJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCreateOrUpdateEnvironmentRequestWithBody(server, orgSlug, appSlug, envSlug, "application/json", bodyReader)
+	return NewCreateOrUpdateEnvironmentRequestWithBody(server, orgSlug, projectSlug, envSlug, "application/json", bodyReader)
 }
 
 // NewCreateOrUpdateEnvironmentRequestWithBody generates requests for CreateOrUpdateEnvironment with any type of body
-func NewCreateOrUpdateEnvironmentRequestWithBody(server string, orgSlug string, appSlug string, envSlug string, contentType string, body io.Reader) (*http.Request, error) {
+func NewCreateOrUpdateEnvironmentRequestWithBody(server string, orgSlug string, projectSlug string, envSlug string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -581,7 +666,7 @@ func NewCreateOrUpdateEnvironmentRequestWithBody(server string, orgSlug string, 
 
 	var pathParam1 string
 
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "appSlug", runtime.ParamLocationPath, appSlug)
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectSlug", runtime.ParamLocationPath, projectSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -598,7 +683,7 @@ func NewCreateOrUpdateEnvironmentRequestWithBody(server string, orgSlug string, 
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/organizations/%s/apps/%s/environments/%s", pathParam0, pathParam1, pathParam2)
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/projects/%s/environments/%s", pathParam0, pathParam1, pathParam2)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -619,18 +704,18 @@ func NewCreateOrUpdateEnvironmentRequestWithBody(server string, orgSlug string, 
 }
 
 // NewCreateEnvironmentComposeFileRequest calls the generic CreateEnvironmentComposeFile builder with application/json body
-func NewCreateEnvironmentComposeFileRequest(server string, orgSlug string, appSlug string, envSlug string, body CreateEnvironmentComposeFileJSONRequestBody) (*http.Request, error) {
+func NewCreateEnvironmentComposeFileRequest(server string, orgSlug string, projectSlug string, envSlug string, body CreateEnvironmentComposeFileJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCreateEnvironmentComposeFileRequestWithBody(server, orgSlug, appSlug, envSlug, "application/json", bodyReader)
+	return NewCreateEnvironmentComposeFileRequestWithBody(server, orgSlug, projectSlug, envSlug, "application/json", bodyReader)
 }
 
 // NewCreateEnvironmentComposeFileRequestWithBody generates requests for CreateEnvironmentComposeFile with any type of body
-func NewCreateEnvironmentComposeFileRequestWithBody(server string, orgSlug string, appSlug string, envSlug string, contentType string, body io.Reader) (*http.Request, error) {
+func NewCreateEnvironmentComposeFileRequestWithBody(server string, orgSlug string, projectSlug string, envSlug string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -642,7 +727,7 @@ func NewCreateEnvironmentComposeFileRequestWithBody(server string, orgSlug strin
 
 	var pathParam1 string
 
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "appSlug", runtime.ParamLocationPath, appSlug)
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectSlug", runtime.ParamLocationPath, projectSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -659,7 +744,7 @@ func NewCreateEnvironmentComposeFileRequestWithBody(server string, orgSlug strin
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/organizations/%s/apps/%s/environments/%s/compose-file", pathParam0, pathParam1, pathParam2)
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/projects/%s/environments/%s/compose-file", pathParam0, pathParam1, pathParam2)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -749,6 +834,11 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// LintComposeFileObjectWithBodyWithResponse request with any body
+	LintComposeFileObjectWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LintComposeFileObjectResponse, error)
+
+	LintComposeFileObjectWithResponse(ctx context.Context, body LintComposeFileObjectJSONRequestBody, reqEditors ...RequestEditorFn) (*LintComposeFileObjectResponse, error)
+
 	// GetDeploymentWithResponse request
 	GetDeploymentWithResponse(ctx context.Context, deploymentId string, reqEditors ...RequestEditorFn) (*GetDeploymentResponse, error)
 
@@ -758,36 +848,66 @@ type ClientWithResponsesInterface interface {
 	// DeployEnvironmentComposeFileWithResponse request
 	DeployEnvironmentComposeFileWithResponse(ctx context.Context, composeFileId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeployEnvironmentComposeFileResponse, error)
 
-	// GetAppWithResponse request
-	GetAppWithResponse(ctx context.Context, orgSlug string, appSlug string, reqEditors ...RequestEditorFn) (*GetAppResponse, error)
+	// GetProjectWithResponse request
+	GetProjectWithResponse(ctx context.Context, orgSlug string, projectSlug string, reqEditors ...RequestEditorFn) (*GetProjectResponse, error)
 
 	// CreateOrUpdateAppWithBodyWithResponse request with any body
-	CreateOrUpdateAppWithBodyWithResponse(ctx context.Context, orgSlug string, appSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrUpdateAppResponse, error)
+	CreateOrUpdateAppWithBodyWithResponse(ctx context.Context, orgSlug string, projectSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrUpdateAppResponse, error)
 
-	CreateOrUpdateAppWithResponse(ctx context.Context, orgSlug string, appSlug string, body CreateOrUpdateAppJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrUpdateAppResponse, error)
+	CreateOrUpdateAppWithResponse(ctx context.Context, orgSlug string, projectSlug string, body CreateOrUpdateAppJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrUpdateAppResponse, error)
 
 	// CreateOrUpdateEnvironmentWithBodyWithResponse request with any body
-	CreateOrUpdateEnvironmentWithBodyWithResponse(ctx context.Context, orgSlug string, appSlug string, envSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrUpdateEnvironmentResponse, error)
+	CreateOrUpdateEnvironmentWithBodyWithResponse(ctx context.Context, orgSlug string, projectSlug string, envSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrUpdateEnvironmentResponse, error)
 
-	CreateOrUpdateEnvironmentWithResponse(ctx context.Context, orgSlug string, appSlug string, envSlug string, body CreateOrUpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrUpdateEnvironmentResponse, error)
+	CreateOrUpdateEnvironmentWithResponse(ctx context.Context, orgSlug string, projectSlug string, envSlug string, body CreateOrUpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrUpdateEnvironmentResponse, error)
 
 	// CreateEnvironmentComposeFileWithBodyWithResponse request with any body
-	CreateEnvironmentComposeFileWithBodyWithResponse(ctx context.Context, orgSlug string, appSlug string, envSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateEnvironmentComposeFileResponse, error)
+	CreateEnvironmentComposeFileWithBodyWithResponse(ctx context.Context, orgSlug string, projectSlug string, envSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateEnvironmentComposeFileResponse, error)
 
-	CreateEnvironmentComposeFileWithResponse(ctx context.Context, orgSlug string, appSlug string, envSlug string, body CreateEnvironmentComposeFileJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateEnvironmentComposeFileResponse, error)
+	CreateEnvironmentComposeFileWithResponse(ctx context.Context, orgSlug string, projectSlug string, envSlug string, body CreateEnvironmentComposeFileJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateEnvironmentComposeFileResponse, error)
 
 	// GetApiV1WhoamiWithResponse request
 	GetApiV1WhoamiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1WhoamiResponse, error)
+}
+
+type LintComposeFileObjectResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Results []LintingIssue `json:"results"`
+	}
+	JSON400 *struct {
+		Error string `json:"error"`
+	}
+	JSON401 *struct {
+		Error string `json:"error"`
+	}
+}
+
+// Status returns HTTPResponse.Status
+func (r LintComposeFileObjectResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LintComposeFileObjectResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type GetDeploymentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *struct {
-		AppId     openapi_types.UUID `json:"appId"`
-		CreatedAt time.Time          `json:"createdAt"`
-		Id        openapi_types.UUID `json:"id"`
-		Logs      *[]struct {
+		CreatedAt     time.Time          `json:"createdAt"`
+		EnvironmentId openapi_types.UUID `json:"environmentId"`
+		Id            openapi_types.UUID `json:"id"`
+		Logs          *[]struct {
 			Log       string    `json:"log"`
 			Stream    string    `json:"stream"`
 			Timestamp time.Time `json:"timestamp"`
@@ -843,7 +963,6 @@ type GetDeploymentHealthResponse struct {
 				Source        *string `json:"source,omitempty"`
 				Type          *string `json:"type,omitempty"`
 			} `json:"events,omitempty"`
-			Helm *map[string]interface{} `json:"helm,omitempty"`
 			Pods *[]struct {
 				Age        *string `json:"age,omitempty"`
 				Conditions *[]struct {
@@ -945,14 +1064,14 @@ type DeployEnvironmentComposeFileResponse struct {
 			// EnvironmentComposeFileId The compose file ID
 			EnvironmentComposeFileId *openapi_types.UUID `json:"environmentComposeFileId,omitempty"`
 
+			// EnvironmentId The environment ID
+			EnvironmentId *openapi_types.UUID `json:"environmentId,omitempty"`
+
 			// Id The deployment ID
 			Id *openapi_types.UUID `json:"id,omitempty"`
 
 			// Status The deployment status
 			Status *string `json:"status,omitempty"`
-
-			// TargetId The target ID
-			TargetId *openapi_types.UUID `json:"targetId,omitempty"`
 
 			// UpdatedAt Last update timestamp
 			UpdatedAt *time.Time `json:"updatedAt,omitempty"`
@@ -983,7 +1102,7 @@ func (r DeployEnvironmentComposeFileResponse) StatusCode() int {
 	return 0
 }
 
-type GetAppResponse struct {
+type GetProjectResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *struct {
@@ -995,7 +1114,6 @@ type GetAppResponse struct {
 			Id           openapi_types.UUID        `json:"id"`
 			Name         string                    `json:"name"`
 			Slug         string                    `json:"slug"`
-			Targets      *[]Target                 `json:"targets,omitempty"`
 			UpdatedAt    time.Time                 `json:"updatedAt"`
 		} `json:"environments,omitempty"`
 		Id        openapi_types.UUID `json:"id"`
@@ -1012,7 +1130,7 @@ type GetAppResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetAppResponse) Status() string {
+func (r GetProjectResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1020,7 +1138,7 @@ func (r GetAppResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetAppResponse) StatusCode() int {
+func (r GetProjectResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1031,16 +1149,9 @@ type CreateOrUpdateAppResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *struct {
-		CreatedAt    time.Time `json:"createdAt"`
-		Description  *string   `json:"description,omitempty"`
-		Environments *[]struct {
-			CreatedAt time.Time          `json:"createdAt"`
-			Id        openapi_types.UUID `json:"id"`
-			Name      string             `json:"name"`
-			Slug      string             `json:"slug"`
-			Targets   *[]Target          `json:"targets,omitempty"`
-			UpdatedAt time.Time          `json:"updatedAt"`
-		} `json:"environments,omitempty"`
+		CreatedAt    time.Time          `json:"createdAt"`
+		Description  *string            `json:"description,omitempty"`
+		Environments *[]Environment     `json:"environments,omitempty"`
 		Id           openapi_types.UUID `json:"id"`
 		Name         string             `json:"name"`
 		Organization *Organization      `json:"organization,omitempty"`
@@ -1072,17 +1183,9 @@ func (r CreateOrUpdateAppResponse) StatusCode() int {
 type CreateOrUpdateEnvironmentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *struct {
-		App       *App               `json:"app,omitempty"`
-		CreatedAt time.Time          `json:"createdAt"`
-		Id        openapi_types.UUID `json:"id"`
-		Name      string             `json:"name"`
-		Slug      string             `json:"slug"`
-		Targets   *[]Target          `json:"targets,omitempty"`
-		UpdatedAt time.Time          `json:"updatedAt"`
-	}
-	JSON400 *ZodError
-	JSON401 *struct {
+	JSON200      *Environment
+	JSON400      *ZodError
+	JSON401      *struct {
 		Error string `json:"error"`
 	}
 	JSON404 *struct {
@@ -1186,6 +1289,23 @@ func (r GetApiV1WhoamiResponse) StatusCode() int {
 	return 0
 }
 
+// LintComposeFileObjectWithBodyWithResponse request with arbitrary body returning *LintComposeFileObjectResponse
+func (c *ClientWithResponses) LintComposeFileObjectWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LintComposeFileObjectResponse, error) {
+	rsp, err := c.LintComposeFileObjectWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLintComposeFileObjectResponse(rsp)
+}
+
+func (c *ClientWithResponses) LintComposeFileObjectWithResponse(ctx context.Context, body LintComposeFileObjectJSONRequestBody, reqEditors ...RequestEditorFn) (*LintComposeFileObjectResponse, error) {
+	rsp, err := c.LintComposeFileObject(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLintComposeFileObjectResponse(rsp)
+}
+
 // GetDeploymentWithResponse request returning *GetDeploymentResponse
 func (c *ClientWithResponses) GetDeploymentWithResponse(ctx context.Context, deploymentId string, reqEditors ...RequestEditorFn) (*GetDeploymentResponse, error) {
 	rsp, err := c.GetDeployment(ctx, deploymentId, reqEditors...)
@@ -1213,26 +1333,26 @@ func (c *ClientWithResponses) DeployEnvironmentComposeFileWithResponse(ctx conte
 	return ParseDeployEnvironmentComposeFileResponse(rsp)
 }
 
-// GetAppWithResponse request returning *GetAppResponse
-func (c *ClientWithResponses) GetAppWithResponse(ctx context.Context, orgSlug string, appSlug string, reqEditors ...RequestEditorFn) (*GetAppResponse, error) {
-	rsp, err := c.GetApp(ctx, orgSlug, appSlug, reqEditors...)
+// GetProjectWithResponse request returning *GetProjectResponse
+func (c *ClientWithResponses) GetProjectWithResponse(ctx context.Context, orgSlug string, projectSlug string, reqEditors ...RequestEditorFn) (*GetProjectResponse, error) {
+	rsp, err := c.GetProject(ctx, orgSlug, projectSlug, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetAppResponse(rsp)
+	return ParseGetProjectResponse(rsp)
 }
 
 // CreateOrUpdateAppWithBodyWithResponse request with arbitrary body returning *CreateOrUpdateAppResponse
-func (c *ClientWithResponses) CreateOrUpdateAppWithBodyWithResponse(ctx context.Context, orgSlug string, appSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrUpdateAppResponse, error) {
-	rsp, err := c.CreateOrUpdateAppWithBody(ctx, orgSlug, appSlug, contentType, body, reqEditors...)
+func (c *ClientWithResponses) CreateOrUpdateAppWithBodyWithResponse(ctx context.Context, orgSlug string, projectSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrUpdateAppResponse, error) {
+	rsp, err := c.CreateOrUpdateAppWithBody(ctx, orgSlug, projectSlug, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseCreateOrUpdateAppResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateOrUpdateAppWithResponse(ctx context.Context, orgSlug string, appSlug string, body CreateOrUpdateAppJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrUpdateAppResponse, error) {
-	rsp, err := c.CreateOrUpdateApp(ctx, orgSlug, appSlug, body, reqEditors...)
+func (c *ClientWithResponses) CreateOrUpdateAppWithResponse(ctx context.Context, orgSlug string, projectSlug string, body CreateOrUpdateAppJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrUpdateAppResponse, error) {
+	rsp, err := c.CreateOrUpdateApp(ctx, orgSlug, projectSlug, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1240,16 +1360,16 @@ func (c *ClientWithResponses) CreateOrUpdateAppWithResponse(ctx context.Context,
 }
 
 // CreateOrUpdateEnvironmentWithBodyWithResponse request with arbitrary body returning *CreateOrUpdateEnvironmentResponse
-func (c *ClientWithResponses) CreateOrUpdateEnvironmentWithBodyWithResponse(ctx context.Context, orgSlug string, appSlug string, envSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrUpdateEnvironmentResponse, error) {
-	rsp, err := c.CreateOrUpdateEnvironmentWithBody(ctx, orgSlug, appSlug, envSlug, contentType, body, reqEditors...)
+func (c *ClientWithResponses) CreateOrUpdateEnvironmentWithBodyWithResponse(ctx context.Context, orgSlug string, projectSlug string, envSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrUpdateEnvironmentResponse, error) {
+	rsp, err := c.CreateOrUpdateEnvironmentWithBody(ctx, orgSlug, projectSlug, envSlug, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseCreateOrUpdateEnvironmentResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateOrUpdateEnvironmentWithResponse(ctx context.Context, orgSlug string, appSlug string, envSlug string, body CreateOrUpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrUpdateEnvironmentResponse, error) {
-	rsp, err := c.CreateOrUpdateEnvironment(ctx, orgSlug, appSlug, envSlug, body, reqEditors...)
+func (c *ClientWithResponses) CreateOrUpdateEnvironmentWithResponse(ctx context.Context, orgSlug string, projectSlug string, envSlug string, body CreateOrUpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrUpdateEnvironmentResponse, error) {
+	rsp, err := c.CreateOrUpdateEnvironment(ctx, orgSlug, projectSlug, envSlug, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1257,16 +1377,16 @@ func (c *ClientWithResponses) CreateOrUpdateEnvironmentWithResponse(ctx context.
 }
 
 // CreateEnvironmentComposeFileWithBodyWithResponse request with arbitrary body returning *CreateEnvironmentComposeFileResponse
-func (c *ClientWithResponses) CreateEnvironmentComposeFileWithBodyWithResponse(ctx context.Context, orgSlug string, appSlug string, envSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateEnvironmentComposeFileResponse, error) {
-	rsp, err := c.CreateEnvironmentComposeFileWithBody(ctx, orgSlug, appSlug, envSlug, contentType, body, reqEditors...)
+func (c *ClientWithResponses) CreateEnvironmentComposeFileWithBodyWithResponse(ctx context.Context, orgSlug string, projectSlug string, envSlug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateEnvironmentComposeFileResponse, error) {
+	rsp, err := c.CreateEnvironmentComposeFileWithBody(ctx, orgSlug, projectSlug, envSlug, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseCreateEnvironmentComposeFileResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateEnvironmentComposeFileWithResponse(ctx context.Context, orgSlug string, appSlug string, envSlug string, body CreateEnvironmentComposeFileJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateEnvironmentComposeFileResponse, error) {
-	rsp, err := c.CreateEnvironmentComposeFile(ctx, orgSlug, appSlug, envSlug, body, reqEditors...)
+func (c *ClientWithResponses) CreateEnvironmentComposeFileWithResponse(ctx context.Context, orgSlug string, projectSlug string, envSlug string, body CreateEnvironmentComposeFileJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateEnvironmentComposeFileResponse, error) {
+	rsp, err := c.CreateEnvironmentComposeFile(ctx, orgSlug, projectSlug, envSlug, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1280,6 +1400,52 @@ func (c *ClientWithResponses) GetApiV1WhoamiWithResponse(ctx context.Context, re
 		return nil, err
 	}
 	return ParseGetApiV1WhoamiResponse(rsp)
+}
+
+// ParseLintComposeFileObjectResponse parses an HTTP response from a LintComposeFileObjectWithResponse call
+func ParseLintComposeFileObjectResponse(rsp *http.Response) (*LintComposeFileObjectResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LintComposeFileObjectResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Results []LintingIssue `json:"results"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest struct {
+			Error string `json:"error"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest struct {
+			Error string `json:"error"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseGetDeploymentResponse parses an HTTP response from a GetDeploymentWithResponse call
@@ -1298,10 +1464,10 @@ func ParseGetDeploymentResponse(rsp *http.Response) (*GetDeploymentResponse, err
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
-			AppId     openapi_types.UUID `json:"appId"`
-			CreatedAt time.Time          `json:"createdAt"`
-			Id        openapi_types.UUID `json:"id"`
-			Logs      *[]struct {
+			CreatedAt     time.Time          `json:"createdAt"`
+			EnvironmentId openapi_types.UUID `json:"environmentId"`
+			Id            openapi_types.UUID `json:"id"`
+			Logs          *[]struct {
 				Log       string    `json:"log"`
 				Stream    string    `json:"stream"`
 				Timestamp time.Time `json:"timestamp"`
@@ -1379,7 +1545,6 @@ func ParseGetDeploymentHealthResponse(rsp *http.Response) (*GetDeploymentHealthR
 					Source        *string `json:"source,omitempty"`
 					Type          *string `json:"type,omitempty"`
 				} `json:"events,omitempty"`
-				Helm *map[string]interface{} `json:"helm,omitempty"`
 				Pods *[]struct {
 					Age        *string `json:"age,omitempty"`
 					Conditions *[]struct {
@@ -1484,14 +1649,14 @@ func ParseDeployEnvironmentComposeFileResponse(rsp *http.Response) (*DeployEnvir
 				// EnvironmentComposeFileId The compose file ID
 				EnvironmentComposeFileId *openapi_types.UUID `json:"environmentComposeFileId,omitempty"`
 
+				// EnvironmentId The environment ID
+				EnvironmentId *openapi_types.UUID `json:"environmentId,omitempty"`
+
 				// Id The deployment ID
 				Id *openapi_types.UUID `json:"id,omitempty"`
 
 				// Status The deployment status
 				Status *string `json:"status,omitempty"`
-
-				// TargetId The target ID
-				TargetId *openapi_types.UUID `json:"targetId,omitempty"`
 
 				// UpdatedAt Last update timestamp
 				UpdatedAt *time.Time `json:"updatedAt,omitempty"`
@@ -1532,15 +1697,15 @@ func ParseDeployEnvironmentComposeFileResponse(rsp *http.Response) (*DeployEnvir
 	return response, nil
 }
 
-// ParseGetAppResponse parses an HTTP response from a GetAppWithResponse call
-func ParseGetAppResponse(rsp *http.Response) (*GetAppResponse, error) {
+// ParseGetProjectResponse parses an HTTP response from a GetProjectWithResponse call
+func ParseGetProjectResponse(rsp *http.Response) (*GetProjectResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetAppResponse{
+	response := &GetProjectResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -1556,7 +1721,6 @@ func ParseGetAppResponse(rsp *http.Response) (*GetAppResponse, error) {
 				Id           openapi_types.UUID        `json:"id"`
 				Name         string                    `json:"name"`
 				Slug         string                    `json:"slug"`
-				Targets      *[]Target                 `json:"targets,omitempty"`
 				UpdatedAt    time.Time                 `json:"updatedAt"`
 			} `json:"environments,omitempty"`
 			Id        openapi_types.UUID `json:"id"`
@@ -1608,16 +1772,9 @@ func ParseCreateOrUpdateAppResponse(rsp *http.Response) (*CreateOrUpdateAppRespo
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
-			CreatedAt    time.Time `json:"createdAt"`
-			Description  *string   `json:"description,omitempty"`
-			Environments *[]struct {
-				CreatedAt time.Time          `json:"createdAt"`
-				Id        openapi_types.UUID `json:"id"`
-				Name      string             `json:"name"`
-				Slug      string             `json:"slug"`
-				Targets   *[]Target          `json:"targets,omitempty"`
-				UpdatedAt time.Time          `json:"updatedAt"`
-			} `json:"environments,omitempty"`
+			CreatedAt    time.Time          `json:"createdAt"`
+			Description  *string            `json:"description,omitempty"`
+			Environments *[]Environment     `json:"environments,omitempty"`
 			Id           openapi_types.UUID `json:"id"`
 			Name         string             `json:"name"`
 			Organization *Organization      `json:"organization,omitempty"`
@@ -1665,15 +1822,7 @@ func ParseCreateOrUpdateEnvironmentResponse(rsp *http.Response) (*CreateOrUpdate
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			App       *App               `json:"app,omitempty"`
-			CreatedAt time.Time          `json:"createdAt"`
-			Id        openapi_types.UUID `json:"id"`
-			Name      string             `json:"name"`
-			Slug      string             `json:"slug"`
-			Targets   *[]Target          `json:"targets,omitempty"`
-			UpdatedAt time.Time          `json:"updatedAt"`
-		}
+		var dest Environment
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

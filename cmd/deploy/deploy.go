@@ -112,7 +112,7 @@ func createEnvironmentComposeFile(
 	return client.CreateEnvironmentComposeFileWithResponse(
 		context.Background(),
 		orgSlug,
-		cfg.GetAppSlug(),
+		cfg.GetProjectSlug(),
 		envName,
 		api.CreateEnvironmentComposeFileJSONRequestBody{
 			ComposeNoramlized: &composeConfigMap,
@@ -170,6 +170,7 @@ func NewDeployCmd() *cobra.Command {
 	var configPath string
 	var envName string
 	var version string
+	var force bool
 
 	cmd := &cobra.Command{
 		Use:          "deploy",
@@ -208,8 +209,9 @@ func NewDeployCmd() *cobra.Command {
 				return err
 			}
 
-			app, err := client.CreateOrUpdateAppWithResponse(cmd.Context(), orgSlug, cfg.App.Slug, api.CreateOrUpdateAppJSONRequestBody{
-				Name: &cfg.App.Slug,
+			name := cfg.GetProjectSlug()
+			app, err := client.CreateOrUpdateAppWithResponse(cmd.Context(), orgSlug, cfg.GetProjectSlug(), api.CreateOrUpdateAppJSONRequestBody{
+				Name: &name,
 			})
 			if err != nil {
 				return err
@@ -217,19 +219,14 @@ func NewDeployCmd() *cobra.Command {
 
 			appID := app.JSON200.Id.String()
 
-			env, ok := cfg.Environments[envName]
-			if !ok {
-				// If no environment specified, use the first one
-				if envName == "" {
-					for name := range cfg.Environments {
-						envName = name
-						env = cfg.Environments[name]
-						break
-					}
-				}
-				if envName == "" {
-					return fmt.Errorf("no environment specified and no environment found in config")
-				}
+			project := cfg.GetProject()
+			if project == nil {
+				return fmt.Errorf("environment %s not found in project", envName)
+			}
+
+			env := project.GetEnvironment(envName)
+			if envName == "" || env == nil {
+				return fmt.Errorf("no environment specified or found in config")
 			}
 
 			composeFiles, err := env.GetComposeFiles(configDir)
@@ -251,14 +248,20 @@ func NewDeployCmd() *cobra.Command {
 				return fmt.Errorf("failed to get services with build: %w", err)
 			}
 
-			issues := lint.Lint(composeConfig)
+			issues, err := lint.Lint(client, composeConfig)
+			if err != nil {
+				return fmt.Errorf("failed to lint compose config: %w", err)
+			}
+
 			if len(issues) > 0 {
 				lint.DisplayValidationResults(issues)
 			}
 
-			for _, issue := range issues {
-				if issue.ValidationCheck.Severity == lint.SeverityError {
-					os.Exit(1)
+			if !force {
+				for _, issue := range issues {
+					if strings.ToLower(string(issue.Severity)) == "error" {
+						os.Exit(1)
+					}
 				}
 			}
 
@@ -556,6 +559,7 @@ func NewDeployCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&configPath, "config", "c", ".portway.yaml", "Config file to deploy")
 	cmd.Flags().StringVarP(&envName, "env", "e", "", "Environment to deploy to")
 	cmd.Flags().StringVarP(&version, "version", "v", "", "Version to deploy")
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Force deploy")
 
 	return cmd
 }

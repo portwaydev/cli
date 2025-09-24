@@ -1,11 +1,84 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Deployment Health API",
-    "description": "API for getting deployment health and troubleshooting information",
+    "title": "Compose Files Lint API",
+    "description": "Validate a compose-like object and return linting results",
     "version": "1.0.0"
   },
   "paths": {
+    "/api/v1/compose-files/lint": {
+      "post": {
+        "summary": "Lint compose-like object",
+        "description": "Posts a JSON object and returns linting results from the compose-like linter",
+        "operationId": "lintComposeFileObject",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "Compose-like object to lint",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Linting completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LintingIssue"
+                      }
+                    }
+                  },
+                  "required": ["results"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON body or bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/deployment/{deploymentId}/health": {
       "get": {
         "summary": "Get deployment health",
@@ -52,9 +125,6 @@
                     "health": {
                       "type": "object",
                       "properties": {
-                        "helm": {
-                          "type": "object"
-                        },
                         "pods": {
                           "type": "array",
                           "items": {
@@ -470,10 +540,10 @@
                             "format": "uuid",
                             "description": "The deployment ID"
                           },
-                          "targetId": {
+                          "environmentId": {
                             "type": "string",
                             "format": "uuid",
-                            "description": "The target ID"
+                            "description": "The environment ID"
                           },
                           "environmentComposeFileId": {
                             "type": "string",
@@ -550,7 +620,7 @@
         }
       }
     },
-    "/api/v1/organizations/{orgSlug}/apps/{appSlug}/environments/{envSlug}/compose-file": {
+    "/api/v1/organizations/{orgSlug}/projects/{projectSlug}/environments/{envSlug}/compose-file": {
       "post": {
         "summary": "Create a new compose file for an environment",
         "description": "Creates a new compose file for the specified environment",
@@ -567,10 +637,10 @@
             }
           },
           {
-            "name": "appSlug",
+            "name": "projectSlug",
             "in": "path",
             "required": true,
-            "description": "Application slug",
+            "description": "Project slug",
             "schema": {
               "type": "string",
               "pattern": "^[a-z0-9-]+$"
@@ -696,7 +766,7 @@
         }
       }
     },
-    "/api/v1/organizations/{orgSlug}/apps/{appSlug}/environments/{envSlug}": {
+    "/api/v1/organizations/{orgSlug}/projects/{projectSlug}/environments/{envSlug}": {
       "put": {
         "summary": "Create or update an environment",
         "description": "Creates a new environment or updates an existing one within an application",
@@ -713,10 +783,10 @@
             }
           },
           {
-            "name": "appSlug",
+            "name": "projectSlug",
             "in": "path",
             "required": true,
-            "description": "Application slug",
+            "description": "Project slug",
             "schema": {
               "type": "string",
               "pattern": "^[a-z0-9-]+$"
@@ -762,20 +832,6 @@
                   "allOf": [
                     {
                       "$ref": "#/components/schemas/Environment"
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "targets": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/Target"
-                          }
-                        },
-                        "app": {
-                          "$ref": "#/components/schemas/App"
-                        }
-                      }
                     }
                   ]
                 }
@@ -829,11 +885,11 @@
         }
       }
     },
-    "/api/v1/organizations/{orgSlug}/apps/{appSlug}": {
+    "/api/v1/organizations/{orgSlug}/projects/{projectSlug}": {
       "get": {
-        "summary": "Get an application",
-        "description": "Retrieves an application by slug with its environments, targets, and compose files",
-        "operationId": "getApp",
+        "summary": "Get an project",
+        "description": "Retrieves an project by slug with its environments, targets, and compose files",
+        "operationId": "getProject",
         "parameters": [
           {
             "name": "orgSlug",
@@ -846,10 +902,10 @@
             }
           },
           {
-            "name": "appSlug",
+            "name": "projectSlug",
             "in": "path",
             "required": true,
-            "description": "Application slug",
+            "description": "Project slug",
             "schema": {
               "type": "string",
               "pattern": "^[a-z0-9-]+$"
@@ -858,14 +914,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Application retrieved successfully",
+            "description": "Project retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/App"
+                      "$ref": "#/components/schemas/Project"
                     },
                     {
                       "type": "object",
@@ -885,12 +941,6 @@
                                     "type": "array",
                                     "items": {
                                       "$ref": "#/components/schemas/EnvironmentComposeFile"
-                                    }
-                                  },
-                                  "targets": {
-                                    "type": "array",
-                                    "items": {
-                                      "$ref": "#/components/schemas/Target"
                                     }
                                   }
                                 }
@@ -957,10 +1007,10 @@
             }
           },
           {
-            "name": "appSlug",
+            "name": "projectSlug",
             "in": "path",
             "required": true,
-            "description": "Application slug",
+            "description": "Project slug",
             "schema": {
               "type": "string",
               "pattern": "^[a-z0-9-]+$"
@@ -968,7 +1018,7 @@
           }
         ],
         "requestBody": {
-          "description": "Application data with optional environments",
+          "description": "Project data with optional environments",
           "required": true,
           "content": {
             "application/json": {
@@ -977,12 +1027,12 @@
                 "properties": {
                   "name": {
                     "type": "string",
-                    "description": "Application name",
+                    "description": "Project name",
                     "example": "My App"
                   },
                   "description": {
                     "type": "string",
-                    "description": "Application description",
+                    "description": "Project description",
                     "example": "A sample application"
                   }
                 },
@@ -993,14 +1043,14 @@
         },
         "responses": {
           "200": {
-            "description": "Application created or updated successfully",
+            "description": "Project created or updated successfully",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/App"
+                      "$ref": "#/components/schemas/Project"
                     },
                     {
                       "type": "object",
@@ -1012,17 +1062,6 @@
                             "allOf": [
                               {
                                 "$ref": "#/components/schemas/Environment"
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "targets": {
-                                    "type": "array",
-                                    "items": {
-                                      "$ref": "#/components/schemas/Target"
-                                    }
-                                  }
-                                }
                               }
                             ]
                           }
@@ -1165,6 +1204,31 @@
   },
   "components": {
     "schemas": {
+      "LintingIssue": {
+        "type": "object",
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["error", "warning", "info"]
+          },
+          "message": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "docUrl": {
+            "type": "string"
+          }
+        },
+        "required": ["severity", "message", "scope", "code", "docUrl"]
+      },
       "Organization": {
         "type": "object",
         "properties": {
@@ -1194,34 +1258,7 @@
         },
         "required": ["id", "name", "slug", "createdAt"]
       },
-      "App": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          },
-          "slug": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": ["id", "name", "slug", "createdAt", "updatedAt"]
-      },
-      "Target": {
+      "Project": {
         "type": "object",
         "properties": {
           "id": {
@@ -1262,7 +1299,7 @@
             "type": "string",
             "format": "uuid"
           },
-          "appId": {
+          "environmentId": {
             "type": "string",
             "format": "uuid"
           },
@@ -1279,7 +1316,7 @@
           "id",
           "status",
           "versionId",
-          "appId",
+          "environmentId",
           "createdAt",
           "updatedAt"
         ]

@@ -1,19 +1,21 @@
 package lint
 
 import (
+	"cli/pkg/api"
 	"fmt"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/pterm/pterm"
 )
 
 type ValidationResult struct {
-	Errors   []ValidationIssue
-	Warnings []ValidationIssue
-	Info     []ValidationIssue
+	Errors   []api.LintingIssue
+	Warnings []api.LintingIssue
+	Info     []api.LintingIssue
 }
 
-func DisplayValidationResults(issues []ValidationIssue) {
+func DisplayValidationResults(issues []api.LintingIssue) {
 	totalIssues := len(issues)
 
 	if totalIssues == 0 {
@@ -21,17 +23,18 @@ func DisplayValidationResults(issues []ValidationIssue) {
 	}
 
 	result := ValidationResult{
-		Errors:   []ValidationIssue{},
-		Warnings: []ValidationIssue{},
-		Info:     []ValidationIssue{},
+		Errors:   []api.LintingIssue{},
+		Warnings: []api.LintingIssue{},
+		Info:     []api.LintingIssue{},
 	}
+
 	for _, issue := range issues {
-		switch issue.ValidationCheck.Severity {
-		case SeverityError:
+		switch strings.ToLower(string(issue.Severity)) {
+		case "error":
 			result.Errors = append(result.Errors, issue)
-		case SeverityWarning:
+		case "warning":
 			result.Warnings = append(result.Warnings, issue)
-		case SeverityInfo:
+		case "info":
 			result.Info = append(result.Info, issue)
 		}
 	}
@@ -67,11 +70,14 @@ func DisplayValidationResults(issues []ValidationIssue) {
 	}
 }
 
-func DisplayIssue(index int, issue ValidationIssue, severityType string) {
-	fmt.Printf("   %d. %s %s\n", index, color.CyanString(issue.ValidationCheck.Code), color.New(color.Bold).Sprint(issue.Field))
+func DisplayIssue(index int, issue api.LintingIssue, severityType string) {
+	fmt.Printf("   %d. %s %s\n", index, color.CyanString(issue.Code), color.New(color.Bold).Sprint(issue.Scope))
 	fmt.Printf("      %s\n", issue.Message)
-	if issue.Suggestion != "" {
-		fmt.Printf("      %s %s\n", color.GreenString("💡"), color.New(color.Faint).Sprint(issue.Suggestion))
+	if issue.Context != nil {
+		fmt.Printf("      %s\n", color.New(color.Faint).Sprint(*issue.Context))
+	}
+	if issue.DocUrl != "" {
+		fmt.Printf("      %s %s\n", color.GreenString("💡"), color.New(color.Faint).Sprint(issue.DocUrl))
 	}
 	pterm.Println()
 }

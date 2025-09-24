@@ -22,6 +22,8 @@ type ComposeFileResolverType string
 
 // Environment represents configuration for a specific environment
 type Environment struct {
+	Region       string   `yaml:"region,omitempty"`
+	Domains      []string `yaml:"domains,omitempty"`
 	ComposeFiles []string `yaml:"compose-files"`
 }
 
@@ -55,11 +57,27 @@ func (e *Environment) GetComposeFiles(configDir string) ([]string, error) {
 	return files, nil
 }
 
+type ProjectConfig struct {
+	Environments map[string]*Environment `yaml:"environments"`
+}
+
+func (p *ProjectConfig) GetEnvironment(name string) *Environment {
+	return p.Environments[name]
+}
+
+type GlobalDefaultsConfig struct {
+	Region string `yaml:"region"`
+	Domains []string `yaml:"domains"`
+}
+
 // Config represents the full application configuration
 type Config struct {
-	path         string                 `yaml:"-"`
-	App          App                    `yaml:"app"`
-	Environments map[string]Environment `yaml:"environments"`
+	path           string                   `yaml:"-"`
+	Version        string                   `yaml:"version"`
+	DefaultProject string                   `yaml:"default-project"`
+	Projects       map[string]*ProjectConfig `yaml:"projects"`
+
+	Defaults GlobalDefaultsConfig `yaml:"defaults"`
 }
 
 func (c *Config) GetOrgSlug(client *api.ClientWithResponses) (string, error) {
@@ -80,12 +98,31 @@ func (c *Config) GetOrgSlug(client *api.ClientWithResponses) (string, error) {
 	return organization.Slug, nil
 }
 
-func (c *Config) GetAppSlug() string {
-	return c.App.Slug
+func (c *Config) GetProjectSlug() string {
+	return c.DefaultProject
 }
+
+func (c *Config) GetProject() *ProjectConfig {
+	if c.DefaultProject != "" {
+		if proj, ok := c.Projects[c.DefaultProject]; ok && proj != nil {
+			return proj
+		}
+	}
+
+	for _, proj := range c.Projects {
+		if proj != nil {
+			return proj
+		}
+	}
+
+	return nil
+}
+
 
 // WriteConfig writes the config back to disk at the specified path
 func (c *Config) WriteConfig() error {
+	c.Version = "1.0"
+	
 	data, err := yaml.Marshal(c)
 	if err != nil {
 		return err

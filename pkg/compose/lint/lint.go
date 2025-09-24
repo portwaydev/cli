@@ -1,6 +1,9 @@
 package lint
 
 import (
+	"cli/pkg/api"
+	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -8,45 +11,25 @@ import (
 	"github.com/compose-spec/compose-go/v2/types"
 )
 
-type Severity string
-const (
-	SeverityError   Severity = "ERROR"
-	SeverityWarning Severity = "WARNING"
-	SeverityInfo    Severity = "INFO"
-)
-
-type ValidationCheck struct {
-	Code        string
-	Name        string
-	Description string
-	Severity    Severity
-	Category    string
-	CheckFunc   func(ctx *types.Project) []ValidationIssue
-}
-
-type ValidationIssue struct {
-	ValidationCheck *ValidationCheck
-	Service         string
-	Field           string
-	Message         string
-	Suggestion      string
-}
-
-var checks = []ValidationCheck{
-	ServiceKeyRFC1123,
-	OnlyBinds,
-	VersionSpecify,
-}
-
-func Lint(project *types.Project) []ValidationIssue {
-	var issues []ValidationIssue
-	for _, check := range checks {
-		for _, issue := range check.CheckFunc(project) {
-			issue.ValidationCheck = &check
-			issues = append(issues, issue)
-		}
+func Lint(client *api.ClientWithResponses, project *types.Project) ([]api.LintingIssue, error) {
+	var result map[string]interface{}
+	data, err := json.Marshal(project)
+	if err != nil {
+		return nil, err
 	}
-	return issues
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+
+	response, err := client.LintComposeFileObjectWithResponse(
+		context.Background(), result)
+	if err != nil {
+		return nil, err
+	}
+	if response.JSON200 == nil {
+		return nil, fmt.Errorf("failed to lint compose file")
+	}
+	return response.JSON200.Results, nil
 }
 
 func ConfigLintMessages() error {
