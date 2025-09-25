@@ -7,7 +7,6 @@ import (
 	"cli/pkg/compose/lint"
 	"cli/pkg/config"
 	"cli/pkg/docker"
-	"cli/pkg/util"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -193,17 +192,6 @@ Examples:
 For more information, see: https://docs.portway.dev/deploy/cli
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			configDir := filepath.Dir(configPath)
-			if hasUncommittedChanges(configDir) {
-				if !util.IsCI() {
-					if err := confirmUncommittedChanges(); err != nil {
-						return err
-					}
-				} else {
-					pterm.Printf("%s  Warning: There are uncommitted changes\n", pterm.Yellow("⚠️"))
-				}
-			}
-
 			client, err := api.NewViperClientWithResponses()
 			if err != nil {
 				fmt.Println()
@@ -232,6 +220,7 @@ For more information, see: https://docs.portway.dev/deploy/cli
 				return fmt.Errorf("no environment specified or found in config")
 			}
 
+			configDir := filepath.Dir(configPath)
 			composeFiles, err := env.GetComposeFiles(configDir)
 			if err != nil {
 				pterm.Printf("%s Failed to get compose files\n", pterm.Red("❌"))

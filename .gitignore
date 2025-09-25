@@ -33,3 +33,4 @@ go.work.sum
 
 prod.sh
 dev.sh
+bin
