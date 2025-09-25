@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/portwaydev/cli/compare/v1.1.0...v1.2.0) (2025-09-24)
+
+
+### Features
+
+* add image building ([ce79a1a](https://github.com/portwaydev/cli/commit/ce79a1af084e3560d16f3684aac2a159a6c5cd12))
+
+
+### Bug Fixes
+
+* support mutiple projects in config ([8eb7951](https://github.com/portwaydev/cli/commit/8eb7951d2bb371258a6c99210c6592bf667c3187))
+
 ## [1.1.0](https://github.com/portwaydev/cli/compare/v1.0.1...v1.1.0) (2025-08-21)
 
 
