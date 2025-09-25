@@ -1,7 +1,0 @@
-app:
-  id: ""
-  slug: nocodb
-environments:
-  production:
-    compose-files:
-      - file:compose.yaml

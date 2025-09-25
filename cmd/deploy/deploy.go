@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -122,6 +123,7 @@ func createEnvironmentComposeFile(
 	)
 }
 
+
 func getConfig(configPath string, cmd *cobra.Command, args []string) (*config.Config, error) {
 	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
@@ -171,8 +173,6 @@ func NewDeployCmd() *cobra.Command {
 	var project string
 	var envName string
 	var version string
-	var force bool
-	var dryRun bool
 
 	cmd := &cobra.Command{
 		Use:          "deploy",
@@ -219,24 +219,12 @@ For more information, see: https://docs.portway.dev/deploy/cli
 				return err
 			}
 
+			name := cfg.GetProjectSlug()
+			project := cfg.GetProject()
+
 			orgSlug, err := cfg.GetOrgSlug(client)
 			if err != nil {
 				return err
-			}
-
-			name := cfg.GetProjectSlug()
-			app, err := client.CreateOrUpdateAppWithResponse(cmd.Context(), orgSlug, cfg.GetProjectSlug(), api.CreateOrUpdateAppJSONRequestBody{
-				Name: &name,
-			})
-			if err != nil {
-				return err
-			}
-
-			appID := app.JSON200.Id.String()
-
-			project := cfg.GetProject()
-			if project == nil {
-				return fmt.Errorf("environment %s not found in project", envName)
 			}
 
 			env := project.GetEnvironment(envName)
@@ -272,11 +260,9 @@ For more information, see: https://docs.portway.dev/deploy/cli
 				lint.DisplayValidationResults(issues)
 			}
 
-			if !force {
-				for _, issue := range issues {
-					if strings.ToLower(string(issue.Severity)) == "error" {
-						os.Exit(1)
-					}
+			for _, issue := range issues {
+				if strings.ToLower(string(issue.Severity)) == "error" {
+					os.Exit(1)
 				}
 			}
 
@@ -285,6 +271,15 @@ For more information, see: https://docs.portway.dev/deploy/cli
 			}
 
 			printServicesTable(composeConfig)
+
+			app, err := client.CreateOrUpdateAppWithResponse(cmd.Context(), orgSlug, cfg.GetProjectSlug(), api.CreateOrUpdateAppJSONRequestBody{
+				Name: &name,
+			})
+			if err != nil {
+				return err
+			}
+
+			appID := app.JSON200.Id.String()
 
 			// Building images
 			hasImagesToBuild := len(composeConfig.ServicesWithBuild()) > 0
@@ -402,10 +397,6 @@ For more information, see: https://docs.portway.dev/deploy/cli
 
 				for _, imageRef := range serviceImages {
 					pterm.Printf("📤 Pushing %s...\n", pterm.Cyan(imageRef))
-					if dryRun {
-						pterm.Printf("%s Skipping push in dry run mode.\n", pterm.Yellow("⚠️"))
-						continue
-					}
 					if err := docker.PushImage(imageRef); err != nil {
 						pterm.Printf("%s Failed to push image %s: %s\n", pterm.Red("❌"), pterm.Cyan(imageRef), err.Error())
 						os.Exit(1)
@@ -432,14 +423,6 @@ For more information, see: https://docs.portway.dev/deploy/cli
 				if err != nil {
 					return fmt.Errorf("failed to get version input: %w", err)
 				}
-			}
-
-			if dryRun {
-				fmt.Println()
-				fmt.Println(color.YellowString("Dry run mode. Exiting."))
-				fmt.Println()
-				os.Exit(0)
-				return nil
 			}
 
 			composeFileResponse, err := createEnvironmentComposeFile(
@@ -573,21 +556,53 @@ For more information, see: https://docs.portway.dev/deploy/cli
 				}
 			}
 
+			deployURL := fmt.Sprintf("https://%s-%s.%s.portway.app", app.JSON200.Slug, orgSlug, env.Region)
+			for {
+				// Try using Go's http client to check for cert errors, fallback to curl if available
+				client := &http.Client{
+					Timeout: 10 * time.Second,
+					Transport: &http.Transport{
+						// Intentionally do not skip cert verification here
+					},
+				}
+				resp, err := client.Get(deployURL)
+				if err != nil {
+					// Check for x509 unknown authority or self-signed cert error
+					if strings.Contains(err.Error(), "x509: certificate signed by unknown authority") ||
+						strings.Contains(err.Error(), "x509: certificate is valid for") ||
+						strings.Contains(err.Error(), "certificate has expired or is not yet valid") ||
+						strings.Contains(err.Error(), "x509:") {
+						fmt.Printf("Waiting for SSL certificate to be valid at %s ...\n", deployURL)
+						time.Sleep(5 * time.Second)
+						continue
+					}
+					// If error is not cert related, break and continue
+					break
+				}
+				if resp != nil {
+					resp.Body.Close()
+				}
+				// If we got here, no cert error
+				break
+			}
+
 			ExitSpinner(spinner, "Deployments completed.")
 			fmt.Println()
 			fmt.Println()
 
 			printHealth(client, *deployments[0].Id)
 
+			fmt.Printf("Deployment complete. Access your application at:\n")
+			fmt.Println(color.BlueString(deployURL))
+			fmt.Println()
+
 			return nil
 		},
 	}
 
 	cmd.Flags().StringVarP(&configPath, "config", "c", ".portway.yaml", "Config file to deploy")
-	cmd.Flags().StringVarP(&envName, "env", "e", "", "Environment to deploy to")
+	cmd.Flags().StringVarP(&envName, "env", "e", "production", "Environment to deploy to")
 	cmd.Flags().StringVarP(&version, "version", "v", "", "Version to deploy")
-	cmd.Flags().BoolVarP(&force, "force", "f", false, "Force deploy")
-	cmd.Flags().BoolVarP(&dryRun, "dry-run", "d", false, "Dry run")
 	cmd.Flags().StringVarP(&project, "project", "p", "", "Project to deploy")
 
 	return cmd

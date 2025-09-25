@@ -1,8 +1,0 @@
-app:
-  id: ""
-  slug: rsshub
-environments:
-  production:
-    compose-files:
-      - url:https://raw.githubusercontent.com/DIYgod/RSSHub/master/docker-compose.yml
-      - file:overrides.yaml

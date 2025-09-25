@@ -1,8 +1,0 @@
-app:
-  id: ""
-  slug: listmonk
-environments:
-  production:
-    compose-files:
-      - github:knadh/listmonk/docker-compose.yml@master
-      - file:override.compose.yaml

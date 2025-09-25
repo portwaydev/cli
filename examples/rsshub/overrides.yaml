@@ -1,7 +1,0 @@
-services:
-  browserless:
-    expose:
-      - 3000
-  redis:
-    expose:
-      - 6379

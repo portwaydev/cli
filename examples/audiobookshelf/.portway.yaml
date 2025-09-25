@@ -1,7 +1,10 @@
-app:
-  id: ""
-  slug: audiobookshelf
-environments:
-  production:
-    compose-files:
-      - file:compose.yaml
+version: "1.0"
+default-project: audiobookshelf
+projects:
+  audiobookshelf:
+    default-environment: production
+    environments:
+      production:
+        region: yul
+        compose-files:
+        - file:compose.yaml
