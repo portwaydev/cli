@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/portwaydev/cli/compare/v1.3.0...v1.3.1) (2025-09-26)
+
+
+### Bug Fixes
+
+* set proper build info ([7df0ce2](https://github.com/portwaydev/cli/commit/7df0ce2b640222cfad7af60026823d20a81af91d))
+
 ## [1.3.0](https://github.com/portwaydev/cli/compare/v1.2.0...v1.3.0) (2025-09-25)
 
 
