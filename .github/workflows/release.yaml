@@ -40,14 +40,14 @@ jobs:
           VERSION=${{ steps.semantic-release.outputs.tag_name }}
           COMMIT=$(git rev-parse --short HEAD)
           DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          LDFLAGS="-ldflags -X 'cli/pkg/buildinfo.Version=$VERSION' -X 'cli/pkg/buildinfo.Commit=$COMMIT' -X 'cli/pkg/buildinfo.Date=$DATE'"
+          LDFLAGS="-X 'cli/pkg/buildinfo.Version=$VERSION' -X 'cli/pkg/buildinfo.Commit=$COMMIT' -X 'cli/pkg/buildinfo.Date=$DATE'"
 
           # Build for different platforms with version info
-          GOOS=linux GOARCH=amd64 go build "$LDFLAGS" -o portway-linux-amd64
-          GOOS=linux GOARCH=arm64 go build "$LDFLAGS" -o portway-linux-arm64
-          GOOS=darwin GOARCH=amd64 go build "$LDFLAGS" -o portway-darwin-amd64
-          GOOS=darwin GOARCH=arm64 go build "$LDFLAGS" -o portway-darwin-arm64
-          GOOS=windows GOARCH=amd64 go build "$LDFLAGS" -o portway-windows-amd64.exe
+          GOOS=linux GOARCH=amd64 go build -ldflags "$LDFLAGS" -o portway-linux-amd64
+          GOOS=linux GOARCH=arm64 go build -ldflags "$LDFLAGS" -o portway-linux-arm64
+          GOOS=darwin GOARCH=amd64 go build -ldflags "$LDFLAGS" -o portway-darwin-amd64
+          GOOS=darwin GOARCH=arm64 go build -ldflags "$LDFLAGS" -o portway-darwin-arm64
+          GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o portway-windows-amd64.exe
 
           # Upload binaries to release
           gh release upload $VERSION portway-linux-amd64
