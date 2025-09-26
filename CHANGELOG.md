@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0](https://github.com/portwaydev/cli/compare/v1.2.0...v1.3.0) (2025-09-25)
+
+
+### Features
+
+* add ssl cert check when deploying ([f9daa81](https://github.com/portwaydev/cli/commit/f9daa814d2067f26d95e4d809f02faa22201425f))
+
+
+### Bug Fixes
+
+* env nameing not set ([07e7f30](https://github.com/portwaydev/cli/commit/07e7f30b629a583c2a51cdde8a2ba45cc76b97dc))
+
 ## [1.2.0](https://github.com/portwaydev/cli/compare/v1.1.0...v1.2.0) (2025-09-24)
 
 
