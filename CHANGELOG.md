@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.2](https://github.com/portwaydev/cli/compare/v1.3.1...v1.3.2) (2025-09-26)
+
+
+### Bug Fixes
+
+* proper build version ([f13060d](https://github.com/portwaydev/cli/commit/f13060dace74fe5c16c71c37517782ab340e15fa))
+
 ## [1.3.1](https://github.com/portwaydev/cli/compare/v1.3.0...v1.3.1) (2025-09-26)
 
 
